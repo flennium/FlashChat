@@ -18,11 +18,17 @@ class FcmService {
     try {
       if (kIsWeb) {
         await _client.requestPermission(
-            alert: true, badge: true, sound: true);
+          alert: true,
+          badge: true,
+          sound: true,
+        );
         return _client.getToken(vapidKey: _webVapidKey);
       }
       await _client.requestPermission(
-          alert: true, badge: true, sound: true);
+        alert: true,
+        badge: true,
+        sound: true,
+      );
       return _client.getToken();
     } catch (_) {
       return null;
@@ -36,6 +42,9 @@ class FcmService {
     required String title,
     required String body,
     Map<String, dynamic> data = const {},
+    String? notificationTag,
+    String? iosThreadId,
+    String? collapseId,
   }) async {
     if (tokens.isEmpty || !PlatformSupport.supportsPushNotifications) return;
     try {
@@ -44,8 +53,14 @@ class FcmService {
         body: {
           'tokens': tokens,
           'title': title,
-          'body': body.length > 120 ? '${body.substring(0, 120)}…' : body,
+          'body': body.length > 120 ? '${body.substring(0, 120)}...' : body,
           'data': data,
+          if (notificationTag != null && notificationTag.isNotEmpty)
+            'notificationTag': notificationTag,
+          if (iosThreadId != null && iosThreadId.isNotEmpty)
+            'iosThreadId': iosThreadId,
+          if (collapseId != null && collapseId.isNotEmpty)
+            'collapseId': collapseId,
         },
       );
     } catch (_) {

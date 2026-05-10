@@ -72,7 +72,7 @@ class ChatController extends StateNotifier<AsyncValue<void>> {
           );
     });
     if (!state.hasError) {
-      _pushNotification(room, user, '📷 Photo');
+      _pushNotification(room, user, 'Photo');
     }
     return !state.hasError;
   }
@@ -91,14 +91,25 @@ class ChatController extends StateNotifier<AsyncValue<void>> {
         if (tokens.isEmpty) return;
         final senderLabel =
             sender.name.isNotEmpty ? sender.name : '@${sender.username}';
+        final senderKey =
+            sender.username.isNotEmpty ? sender.username : sender.uid;
+        final notificationKey = 'room_${room.id}_sender_$senderKey';
         await ref.read(fcmServiceProvider).sendNotification(
               tokens: tokens,
-              title: '${room.name} — $senderLabel',
-              body: text.isEmpty ? '📷 Photo' : text,
-              data: {'roomId': room.id, 'type': 'message'},
+              title: '${room.name} - $senderLabel',
+              body: text.isEmpty ? 'Photo' : text,
+              data: {
+                'roomId': room.id,
+                'type': 'message',
+                'senderId': sender.uid,
+                'senderUsername': sender.username,
+              },
+              notificationTag: notificationKey,
+              iosThreadId: notificationKey,
+              collapseId: notificationKey,
             );
       } catch (_) {
-        // Non-critical — notification failures must never surface to the user.
+        // Non-critical notification failures must never surface to the user.
       }
     });
   }

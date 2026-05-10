@@ -94,6 +94,9 @@ async function sendOne(
   title: string,
   body: string,
   data: Record<string, string>,
+  notificationTag: string | null,
+  iosThreadId: string | null,
+  collapseId: string | null,
   projectId: string,
   accessToken: string,
 ): Promise<boolean> {
@@ -110,8 +113,24 @@ async function sendOne(
           token,
           notification: { title, body },
           data,
-          android: { priority: "high" },
-          apns: { payload: { aps: { sound: "default" } } },
+          android: {
+            priority: "high",
+            collapse_key: collapseId ?? undefined,
+            notification: {
+              tag: notificationTag ?? undefined,
+            },
+          },
+          apns: {
+            headers: collapseId
+              ? { "apns-collapse-id": collapseId }
+              : undefined,
+            payload: {
+              aps: {
+                sound: "default",
+                "thread-id": iosThreadId ?? undefined,
+              },
+            },
+          },
         },
       }),
     },
@@ -133,7 +152,15 @@ Deno.serve(async (req: Request) => {
     if (!raw) throw new Error("FIREBASE_SERVICE_ACCOUNT secret is not set");
 
     const sa: ServiceAccount = JSON.parse(raw);
-    const { tokens, title, body, data = {} } = await req.json();
+    const {
+      tokens,
+      title,
+      body,
+      data = {},
+      notificationTag = null,
+      iosThreadId = null,
+      collapseId = null,
+    } = await req.json();
 
     if (!Array.isArray(tokens) || tokens.length === 0) {
       return new Response(JSON.stringify({ success: true, sent: 0 }), {
@@ -150,7 +177,17 @@ Deno.serve(async (req: Request) => {
 
     const results = await Promise.allSettled(
       tokens.map((t: string) =>
-        sendOne(t, title ?? "", body ?? "", stringData, sa.project_id, accessToken)
+        sendOne(
+          t,
+          title ?? "",
+          body ?? "",
+          stringData,
+          notificationTag,
+          iosThreadId,
+          collapseId,
+          sa.project_id,
+          accessToken,
+        )
       ),
     );
 

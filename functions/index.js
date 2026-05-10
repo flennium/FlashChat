@@ -97,6 +97,11 @@ exports.onNewMessage = functions.firestore
       message.senderUsername && String(message.senderUsername).trim()
         ? `@${message.senderUsername}`
         : message.senderName || "New mention";
+    const senderKey =
+      message.senderUsername && String(message.senderUsername).trim()
+        ? String(message.senderUsername).trim().toLowerCase()
+        : senderId || "unknown";
+    const notificationKey = `room_${roomId}_mention_${senderKey}`;
 
     return admin.messaging().sendEachForMulticast({
       tokens,
@@ -104,9 +109,26 @@ exports.onNewMessage = functions.firestore
         title: `${senderLabel} mentioned you`,
         body: message.text || "You were mentioned in a room",
       },
+      android: {
+        notification: {
+          tag: notificationKey,
+        },
+        collapseKey: notificationKey,
+      },
+      apns: {
+        headers: {
+          "apns-collapse-id": notificationKey,
+        },
+        payload: {
+          aps: {
+            "thread-id": notificationKey,
+          },
+        },
+      },
       data: {
         roomId,
         type: "mention",
+        senderId,
       },
     });
   });
