@@ -3,6 +3,7 @@ import 'package:image_picker/image_picker.dart';
 
 import '../../../core/constants/app_env.dart';
 import '../../../core/providers/app_providers.dart';
+import '../../../core/utils/mention_utils.dart';
 import '../../../models/message_model.dart';
 import '../../../models/room_model.dart';
 import '../../../models/user_model.dart';
@@ -82,32 +83,65 @@ class ChatController extends StateNotifier<AsyncValue<void>> {
   void _pushNotification(RoomModel room, UserModel sender, String text) {
     Future(() async {
       try {
+        final mentionedUsernames = MentionUtils.findMentions(text)
+            .map((mention) => mention.username)
+            .toSet();
+        final mentionTargets = await ref
+            .read(firestoreServiceProvider)
+            .getMentionNotificationTargets(
+              roomId: room.id,
+              usernames: mentionedUsernames,
+              excludeUid: sender.uid,
+            );
+
         final tokens = await ref
             .read(firestoreServiceProvider)
             .getRoomMemberFcmTokens(
               roomId: room.id,
               excludeUid: sender.uid,
+              excludeUids: mentionTargets.uids.toSet(),
             );
-        if (tokens.isEmpty) return;
+
         final senderLabel =
             sender.name.isNotEmpty ? sender.name : '@${sender.username}';
         final senderKey =
             sender.username.isNotEmpty ? sender.username : sender.uid;
         final notificationKey = 'room_${room.id}_sender_$senderKey';
-        await ref.read(fcmServiceProvider).sendNotification(
-              tokens: tokens,
-              title: '${room.name} - $senderLabel',
-              body: text.isEmpty ? 'Photo' : text,
-              data: {
-                'roomId': room.id,
-                'type': 'message',
-                'senderId': sender.uid,
-                'senderUsername': sender.username,
-              },
-              notificationTag: notificationKey,
-              iosThreadId: notificationKey,
-              collapseId: notificationKey,
-            );
+
+        if (tokens.isNotEmpty) {
+          await ref.read(fcmServiceProvider).sendNotification(
+                tokens: tokens,
+                title: '${room.name} - $senderLabel',
+                body: text.isEmpty ? 'Photo' : text,
+                data: {
+                  'roomId': room.id,
+                  'type': 'message',
+                  'senderId': sender.uid,
+                  'senderUsername': sender.username,
+                },
+                notificationTag: notificationKey,
+                iosThreadId: notificationKey,
+                collapseId: notificationKey,
+              );
+        }
+
+        if (mentionTargets.tokens.isNotEmpty && text.isNotEmpty) {
+          final mentionKey = 'room_${room.id}_mention_$senderKey';
+          await ref.read(fcmServiceProvider).sendNotification(
+                tokens: mentionTargets.tokens,
+                title: '$senderLabel mentioned you',
+                body: text,
+                data: {
+                  'roomId': room.id,
+                  'type': 'mention',
+                  'senderId': sender.uid,
+                  'senderUsername': sender.username,
+                },
+                notificationTag: mentionKey,
+                iosThreadId: mentionKey,
+                collapseId: mentionKey,
+              );
+        }
       } catch (_) {
         // Non-critical notification failures must never surface to the user.
       }

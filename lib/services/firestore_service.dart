@@ -7,6 +7,16 @@ import '../models/message_model.dart';
 import '../models/room_model.dart';
 import '../models/user_model.dart';
 
+class MentionNotificationTargets {
+  const MentionNotificationTargets({
+    required this.uids,
+    required this.tokens,
+  });
+
+  final List<String> uids;
+  final List<String> tokens;
+}
+
 class FirestoreService {
   FirestoreService({
     FirebaseFirestore? firestore,
@@ -190,7 +200,27 @@ class FirestoreService {
       readBy: [sender.uid],
       replyTo: replyTo,
     );
-    await doc.set(message.toMap());
+    final membersSnap = await _firestore
+        .collection(FirebaseConstants.rooms)
+        .doc(roomId)
+        .collection(FirebaseConstants.members)
+        .get();
+
+    final batch = _firestore.batch();
+    batch.set(doc, message.toMap());
+
+    for (final memberDoc in membersSnap.docs) {
+      if (memberDoc.id == sender.uid) continue;
+      batch.set(
+        memberDoc.reference,
+        {
+          'unreadCount': FieldValue.increment(1),
+        },
+        SetOptions(merge: true),
+      );
+    }
+
+    await batch.commit();
   }
 
   Future<void> editMessage({
@@ -421,6 +451,7 @@ class FirestoreService {
   Future<List<String>> getRoomMemberFcmTokens({
     required String roomId,
     required String excludeUid,
+    Set<String> excludeUids = const {},
   }) async {
     final membersSnap = await _firestore
         .collection(FirebaseConstants.rooms)
@@ -430,7 +461,7 @@ class FirestoreService {
 
     final uids = membersSnap.docs
         .map((d) => d.id)
-        .where((uid) => uid != excludeUid)
+        .where((uid) => uid != excludeUid && !excludeUids.contains(uid))
         .toList();
 
     if (uids.isEmpty) return [];
@@ -452,6 +483,72 @@ class FirestoreService {
       }
     }
     return tokens;
+  }
+
+  Future<MentionNotificationTargets> getMentionNotificationTargets({
+    required String roomId,
+    required Iterable<String> usernames,
+    required String excludeUid,
+  }) async {
+    final normalized = usernames
+        .map((username) => username.trim().toLowerCase())
+        .where((username) => username.isNotEmpty)
+        .toSet()
+        .toList();
+
+    if (normalized.isEmpty) {
+      return const MentionNotificationTargets(uids: [], tokens: []);
+    }
+
+    final membersSnap = await _firestore
+        .collection(FirebaseConstants.rooms)
+        .doc(roomId)
+        .collection(FirebaseConstants.members)
+        .get();
+    final memberUids = membersSnap.docs.map((doc) => doc.id).toSet();
+
+    final usernameDocs = await Future.wait(
+      normalized.map(
+        (username) => _firestore
+            .collection(FirebaseConstants.usernames)
+            .doc(username)
+            .get(),
+      ),
+    );
+
+    final mentionedUids = usernameDocs
+        .map((doc) => doc.data()?['uid'] as String?)
+        .whereType<String>()
+        .where((uid) => uid != excludeUid && memberUids.contains(uid))
+        .toSet()
+        .toList();
+
+    if (mentionedUids.isEmpty) {
+      return const MentionNotificationTargets(uids: [], tokens: []);
+    }
+
+    final tokens = <String>[];
+    for (int i = 0; i < mentionedUids.length; i += 10) {
+      final batch = mentionedUids.sublist(
+        i,
+        (i + 10).clamp(0, mentionedUids.length),
+      );
+      final usersSnap = await _firestore
+          .collection(FirebaseConstants.users)
+          .where(FieldPath.documentId, whereIn: batch)
+          .get();
+
+      for (final doc in usersSnap.docs) {
+        final data = doc.data();
+        final token = (data['fcmToken'] as String?) ?? '';
+        final enabled = (data['notificationsEnabled'] as bool?) ?? true;
+        if (token.isNotEmpty && enabled) {
+          tokens.add(token);
+        }
+      }
+    }
+
+    return MentionNotificationTargets(uids: mentionedUids, tokens: tokens);
   }
 
   // Mute
