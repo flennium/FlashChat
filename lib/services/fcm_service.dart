@@ -2,24 +2,28 @@ import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-class FcmService {
-  FcmService({FirebaseMessaging? messaging})
-      : _messaging = messaging ?? FirebaseMessaging.instance;
+import '../core/utils/platform_support.dart';
 
-  final FirebaseMessaging _messaging;
+class FcmService {
+  FcmService({FirebaseMessaging? messaging}) : _messaging = messaging;
+
+  final FirebaseMessaging? _messaging;
   static const _webVapidKey =
       'BJ0rBsQH5oBw6gYIopr2DvdbH5kKomvmuWlaKX4ydrMcH8PubyC3GFaLgKe1BQiQEmR5MnAdSwvhMTiX9AFJQFU';
 
+  FirebaseMessaging get _client => _messaging ?? FirebaseMessaging.instance;
+
   Future<String?> initAndGetToken() async {
+    if (!PlatformSupport.supportsPushNotifications) return null;
     try {
       if (kIsWeb) {
-        await _messaging.requestPermission(
+        await _client.requestPermission(
             alert: true, badge: true, sound: true);
-        return _messaging.getToken(vapidKey: _webVapidKey);
+        return _client.getToken(vapidKey: _webVapidKey);
       }
-      await _messaging.requestPermission(
+      await _client.requestPermission(
           alert: true, badge: true, sound: true);
-      return _messaging.getToken();
+      return _client.getToken();
     } catch (_) {
       return null;
     }
@@ -33,7 +37,7 @@ class FcmService {
     required String body,
     Map<String, dynamic> data = const {},
   }) async {
-    if (tokens.isEmpty) return;
+    if (tokens.isEmpty || !PlatformSupport.supportsPushNotifications) return;
     try {
       await Supabase.instance.client.functions.invoke(
         'send-notification',

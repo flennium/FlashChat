@@ -4,33 +4,29 @@ import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../core/constants/app_env.dart';
-import '../firebase_options.dart';
+import '../core/utils/firebase_platform_options.dart';
+import '../core/utils/platform_support.dart';
 
 class AppBootstrap {
   const AppBootstrap._();
 
   static Future<void> initialize() async {
     try {
-      if (kIsWeb ||
-          defaultTargetPlatform == TargetPlatform.android ||
-          defaultTargetPlatform == TargetPlatform.iOS) {
-        await Firebase.initializeApp(
-          options: DefaultFirebaseOptions.currentPlatform,
-        );
-      } else {
-        await Firebase.initializeApp();
-      }
+      await Firebase.initializeApp(options: FirebasePlatformOptions.current);
       if (AppEnv.hasSupabaseStorageConfig) {
         await Supabase.initialize(
           url: AppEnv.supabaseUrl,
           anonKey: AppEnv.supabaseAnonKey,
         );
       }
-      FlutterError.onError = FirebaseCrashlytics.instance.recordFlutterFatalError;
-      PlatformDispatcher.instance.onError = (error, stack) {
-        FirebaseCrashlytics.instance.recordError(error, stack, fatal: true);
-        return true;
-      };
+      if (PlatformSupport.supportsCrashlytics) {
+        FlutterError.onError =
+            FirebaseCrashlytics.instance.recordFlutterFatalError;
+        PlatformDispatcher.instance.onError = (error, stack) {
+          FirebaseCrashlytics.instance.recordError(error, stack, fatal: true);
+          return true;
+        };
+      }
     } catch (error, stack) {
       Error.throwWithStackTrace(error, stack);
     }

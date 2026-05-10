@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/providers/app_providers.dart';
+import '../../../core/utils/platform_support.dart';
 import '../../../core/utils/validators.dart';
 import '../controllers/auth_controller.dart';
 import '../widgets/google_sign_in_button.dart';
@@ -141,20 +142,29 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
             const Expanded(child: Divider()),
           ]),
           const SizedBox(height: 16),
-          GoogleSignInButton(
-            loading: isLoading,
-            onPressed: () async {
-              final navigator = Navigator.of(context);
-              final ok = await ref
-                  .read(authControllerProvider.notifier)
-                  .signInWithGoogle();
-              if (!mounted || !ok) return;
-              navigator.pushAndRemoveUntil(
-                MaterialPageRoute<void>(builder: (_) => const HomeShell()),
-                (route) => false,
-              );
-            },
-          ),
+          if (PlatformSupport.supportsGoogleSignIn)
+            GoogleSignInButton(
+              loading: isLoading,
+              onPressed: () async {
+                final navigator = Navigator.of(context);
+                final ok = await ref
+                    .read(authControllerProvider.notifier)
+                    .signInWithGoogle();
+                if (!mounted || !ok) return;
+                navigator.pushAndRemoveUntil(
+                  MaterialPageRoute<void>(builder: (_) => const HomeShell()),
+                  (route) => false,
+                );
+              },
+            ),
+          if (!PlatformSupport.supportsGoogleSignIn) ...[
+            const SizedBox(height: 4),
+            Text(
+              'Google Sign-In is available on the mobile and web versions of FlashChat.',
+              style: theme.textTheme.bodySmall,
+              textAlign: TextAlign.center,
+            ),
+          ],
         ],
       ),
     );

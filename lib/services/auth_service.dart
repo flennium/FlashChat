@@ -7,6 +7,7 @@ import 'package:google_sign_in/google_sign_in.dart';
 
 import '../core/constants/app_env.dart';
 import '../core/constants/firebase_constants.dart';
+import '../core/utils/platform_support.dart';
 import '../models/user_model.dart';
 
 class AuthService {
@@ -58,6 +59,12 @@ class AuthService {
   }
 
   Future<UserCredential> signInWithGoogle() async {
+    if (!PlatformSupport.supportsGoogleSignIn) {
+      throw FirebaseAuthException(
+        code: 'unsupported-platform',
+        message: 'Google Sign-In is not available on this platform.',
+      );
+    }
     if (kIsWeb && AppEnv.googleWebClientId.isEmpty) {
       throw FirebaseAuthException(
         code: 'missing-google-web-client-id',
@@ -95,7 +102,9 @@ class AuthService {
   }
 
   Future<void> signOut() async {
-    await _googleSignIn.signOut();
+    if (PlatformSupport.supportsGoogleSignIn) {
+      await _googleSignIn.signOut();
+    }
     await _auth.signOut();
   }
 

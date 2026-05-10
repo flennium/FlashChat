@@ -19,6 +19,7 @@ Important behavior:
 - a Firestore profile is created automatically for new users
 - each new user also gets a unique username
 - if Google sign-in creates a first-time user, a profile document is also created
+- on Windows, the app uses email authentication only and hides Google Sign-In
 
 ## 2. Splash and Session Handling
 
@@ -108,6 +109,7 @@ Behavior:
 - signed-in user is marked online
 - `onDisconnect()` marks the user offline automatically
 - the app can display an online count
+- the Windows build skips presence because the current desktop runner does not include the Realtime Database plugin
 
 ## 8. Mentions
 
@@ -149,6 +151,7 @@ Foreground behavior:
 
 - the app shows a custom notification banner
 - if the user is already inside the same room, the banner is suppressed
+- the Windows build skips push notifications because Firebase Messaging is not part of the desktop runner setup
 
 ## 10. Media Uploads
 
@@ -198,6 +201,10 @@ Theme choices are stored locally with `SharedPreferences`.
 The app can display a global pinned announcement using Firebase Remote Config.
 
 This allows changing a message without publishing a new app version.
+
+Windows note:
+
+- the Windows build falls back to no global announcement if Remote Config is unavailable on desktop
 
 ## 14. Tests
 

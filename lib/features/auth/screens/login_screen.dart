@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/utils/platform_support.dart';
 import '../../../core/utils/validators.dart';
 import '../controllers/auth_controller.dart';
 import '../widgets/google_sign_in_button.dart';
@@ -76,17 +77,25 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                   child: Text(isLoading ? 'Signing in...' : 'Sign In'),
                 ),
                 const SizedBox(height: 12),
-                GoogleSignInButton(
-                  loading: isLoading,
-                  onPressed: () async {
-                    final navigator = Navigator.of(context);
-                    final ok = await ref.read(authControllerProvider.notifier).signInWithGoogle();
-                    if (!mounted || !ok) return;
-                    navigator.pushReplacement(
-                      MaterialPageRoute<void>(builder: (_) => const HomeShell()),
-                    );
-                  },
-                ),
+                if (PlatformSupport.supportsGoogleSignIn)
+                  GoogleSignInButton(
+                    loading: isLoading,
+                    onPressed: () async {
+                      final navigator = Navigator.of(context);
+                      final ok = await ref.read(authControllerProvider.notifier).signInWithGoogle();
+                      if (!mounted || !ok) return;
+                      navigator.pushReplacement(
+                        MaterialPageRoute<void>(builder: (_) => const HomeShell()),
+                      );
+                    },
+                  ),
+                if (!PlatformSupport.supportsGoogleSignIn) ...[
+                  const SizedBox(height: 4),
+                  Text(
+                    'Google Sign-In is available on the mobile and web versions of FlashChat.',
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                ],
                 const SizedBox(height: 16),
                 TextButton(
                   onPressed: () {

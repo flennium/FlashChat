@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/providers/app_providers.dart';
+import '../../../core/utils/platform_support.dart';
 import '../../auth/screens/login_screen.dart';
 import '../../profile/screens/profile_screen.dart';
 import '../../profile/screens/settings_screen.dart';
@@ -34,7 +35,9 @@ class _HomeShellState extends ConsumerState<HomeShell> {
   void initState() {
     super.initState();
     Future.microtask(_initPresence);
-    _fcmSubscription = FirebaseMessaging.onMessage.listen(_onForegroundMessage);
+    if (PlatformSupport.supportsPushNotifications) {
+      _fcmSubscription = FirebaseMessaging.onMessage.listen(_onForegroundMessage);
+    }
     _authSubscription = ref.listenManual<AsyncValue<User?>>(
       authStateProvider,
       (_, next) {
@@ -54,10 +57,14 @@ class _HomeShellState extends ConsumerState<HomeShell> {
     final profile =
         await ref.read(firestoreServiceProvider).fetchCurrentUserProfile();
     final username = profile?.username ?? '';
-    await ref.read(presenceServiceProvider).setOnline(username: username);
+    if (PlatformSupport.supportsRealtimePresence) {
+      await ref.read(presenceServiceProvider).setOnline(username: username);
+    }
 
     final authUser = ref.read(authStateProvider).value;
-    final token = await ref.read(fcmServiceProvider).initAndGetToken();
+    final token = PlatformSupport.supportsPushNotifications
+        ? await ref.read(fcmServiceProvider).initAndGetToken()
+        : null;
     if (authUser != null && token != null && token.isNotEmpty) {
       await ref.read(firestoreServiceProvider).updateProfile(
             uid: authUser.uid,
