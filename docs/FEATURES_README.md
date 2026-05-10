@@ -126,9 +126,9 @@ The app detects:
 
 This supports autocomplete and better text handling.
 
-### Server-side notification
+### Mention notification targeting
 
-Firebase Cloud Functions scan new messages for mentions and notify matching users.
+The app resolves mentioned usernames through Firestore and notifies only valid mentioned room members.
 
 ## 9. Push Notifications
 
@@ -144,8 +144,8 @@ Room-message notifications:
 
 Mention notifications:
 
-- triggered by Firebase Cloud Functions
-- sent through Firebase Admin SDK
+- triggered by the Flutter client after resolving mentioned users
+- sent through the Supabase Edge Function
 
 Foreground behavior:
 

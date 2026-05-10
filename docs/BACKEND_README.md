@@ -10,7 +10,6 @@ Firebase is used for:
 - Cloud Firestore
 - Realtime Database
 - Cloud Messaging
-- Cloud Functions
 - Remote Config
 - Crashlytics
 
@@ -46,6 +45,10 @@ Important service file:
 
 - `lib/services/firestore_service.dart`
 
+Current note:
+
+- unread counters are updated directly by the Flutter client when a message is created
+
 ## 4. Realtime Database
 
 Realtime Database is used only for ephemeral presence data.
@@ -70,13 +73,13 @@ Important service file:
 
 - `lib/services/remote_config_service.dart`
 
-## 6. Firebase Cloud Functions
+## 6. Legacy Firebase Cloud Functions
 
 Main file:
 
 - `functions/index.js`
 
-There are three deployed functions.
+This folder is now kept as a legacy reference, not as the active production backend for the Spark-plan setup.
 
 ### `onNewMessage`
 
@@ -91,6 +94,10 @@ Responsibilities:
 - resolve usernames to user ids
 - send mention notifications to valid room members
 
+Current status:
+
+- this logic has been replaced in the active app flow by Flutter client code plus the Supabase Edge Function
+
 ### `moderateMessage`
 
 Trigger:
@@ -104,6 +111,10 @@ Responsibilities:
 
 Current moderation is intentionally simple and easy to extend.
 
+Current status:
+
+- no active Spark-plan replacement is deployed for this moderation function
+
 ### `updateMemberCount`
 
 Trigger:
@@ -114,6 +125,10 @@ Responsibilities:
 
 - recount member documents
 - update cached `memberCount` on the room
+
+Current status:
+
+- room creation and join flows already keep `memberCount` updated on the client side
 
 ## 7. Supabase Edge Function
 
@@ -140,6 +155,7 @@ Request body contains:
 Important behavior:
 
 - all `data` values are converted to strings because FCM v1 requires string payload values
+- message and mention notifications can be compacted by sender using platform-specific collapse keys / tags
 
 ## 8. Security Rules
 
@@ -202,7 +218,7 @@ flutter test
 flutter run
 ```
 
-Firebase Functions install:
+Legacy Firebase Functions install:
 
 ```bash
 cd functions
@@ -213,9 +229,10 @@ Supabase Edge Function development depends on the Supabase CLI if local testing 
 
 ## 11. Deployment Notes
 
-Firebase Cloud Functions:
+Legacy Firebase Cloud Functions:
 
-- deploy from the `functions/` directory with Firebase CLI
+- deployment requires the Firebase Blaze plan
+- they are not required for the current Spark-plan setup
 
 Supabase Edge Function:
 
@@ -229,7 +246,7 @@ Flutter app:
 
 Current areas to watch:
 
-- notification logic is split across two backends
+- notification logic depends on the Flutter client plus the Supabase Edge Function
 - service-account secrets must not stay in the project folder
 - client-triggered general notifications can be bypassed or duplicated more easily than server-triggered ones
 - account deletion currently removes the auth user and profile doc, but deeper cleanup may still be desirable

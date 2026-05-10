@@ -12,13 +12,14 @@ FlashChat is a Flutter chat application backed mainly by Firebase, with Supabase
 - Firebase Cloud Messaging for device notification tokens
 - Firebase Remote Config for the global pinned announcement
 - Firebase Crashlytics for runtime error reporting
-- Firebase Cloud Functions for unread counters, moderation, and mention notifications
+- Supabase Edge Function for push notification delivery
 - Supabase Storage for avatars, room avatars, and chat images
 
 ## Project Layout
 
 - `lib/`: Flutter application source
-- `functions/`: Firebase Cloud Functions source
+- `functions/`: legacy Firebase Cloud Functions reference
+- `supabase/functions/`: active Supabase Edge Functions
 - `assets/branding/`: project logos and app icon source files
 - `android/`, `ios/`, `web/`, `windows/`, `macos/`, `linux/`: platform runners
 - `firestore.rules`: Firestore security rules
@@ -57,6 +58,20 @@ See the repository `Releases` section for the latest downloadable builds.
 - Supabase storage bucket names come from dart defines or `AppEnv`
 - Firebase configuration is generated in `lib/firebase_options.dart`
 - Sensitive runtime config is intentionally excluded from version control
+
+## Backend Status
+
+Current active backend behavior:
+
+- Firebase Authentication, Firestore, Realtime Database, Remote Config, Crashlytics, and FCM are still used by the app
+- Supabase Storage is used for uploaded media
+- `supabase/functions/send-notification` is the active push-notification backend
+- unread counters and mention-target resolution are handled in the Flutter app for Spark-plan compatibility
+
+Legacy note:
+
+- `functions/index.js` is kept only as a reference for an older Firebase Functions approach
+- it is not required for the current free-plan setup
 
 ## Cleanup Notes
 

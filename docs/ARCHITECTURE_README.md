@@ -10,8 +10,8 @@ The project uses a hybrid backend:
 - Cloud Firestore for main app data
 - Firebase Realtime Database for live presence
 - Firebase Remote Config for a global announcement
-- Firebase Cloud Functions for automation
 - Firebase Cloud Messaging for push delivery
+- Supabase Edge Function for push delivery logic
 - Supabase Storage for uploaded images
 
 ## 2. High-Level Structure
@@ -19,7 +19,7 @@ The project uses a hybrid backend:
 The project is split into these main areas:
 
 - `lib/`: Flutter client application
-- `functions/`: Firebase Cloud Functions
+- `functions/`: legacy Firebase Cloud Functions reference
 - `supabase/functions/send-notification/`: Supabase Edge Function for FCM v1 delivery
 - `assets/branding/`: app images and logos
 - `test/`: unit and widget tests
@@ -104,12 +104,12 @@ When a user sends text:
 6. After success, the app attempts to send push notifications.
 7. It collects room-member FCM tokens except the sender.
 8. It calls the Supabase Edge Function `send-notification`.
-9. Firebase Cloud Functions separately update unread counters and mention notifications.
+9. The app updates unread counters and resolves mention targets in its own logic.
 
-This means push sending is split:
+This means the active push flow is:
 
 - normal room-message notifications are triggered by the Flutter client through Supabase
-- mention notifications are triggered server-side through Firebase Cloud Functions
+- mention notifications are also triggered by the Flutter client through Supabase
 
 ## 8. Presence and Live UX
 
@@ -135,7 +135,7 @@ This powers:
 
 ## 9. Notification Design
 
-There are two notification systems:
+There are two notification categories:
 
 ### Client-triggered room notifications
 
@@ -145,13 +145,13 @@ Used for general room messages.
 - It calls the Supabase Edge Function.
 - The Edge Function sends FCM v1 requests to Google.
 
-### Server-triggered mention notifications
+### Client-triggered mention notifications
 
 Used when a message contains `@username`.
 
-- Firebase Cloud Function parses the text.
-- It resolves usernames through the `usernames` collection.
-- It sends a notification only to mentioned users who are room members.
+- The Flutter app parses the text.
+- It resolves usernames through Firestore.
+- It sends mention notifications only to mentioned users who are room members.
 
 ### Foreground suppression
 
@@ -192,7 +192,6 @@ Firebase handles:
 - auth
 - structured app data
 - presence
-- cloud automation
 - config
 - crash reporting
 
@@ -213,7 +212,7 @@ This split is unusual but valid. It works because each service is used for a foc
 
 ## 14. Limitations and Tradeoffs
 
-- Business logic is distributed between Flutter, Firebase Functions, and Supabase
+- Business logic is distributed between Flutter and Supabase
 - General push notifications are client-triggered, which is simpler but less authoritative than a full server-driven design
 - Some generated/config files were mixed into the project directory before cleanup
 - There is no Git repository metadata in this folder, so change history is not available
@@ -227,5 +226,5 @@ If you want to understand the architecture quickly, read these in order:
 3. `lib/core/providers/app_providers.dart`
 4. `lib/services/firestore_service.dart`
 5. `lib/features/chat/controllers/chat_controller.dart`
-6. `functions/index.js`
-7. `supabase/functions/send-notification/index.ts`
+6. `supabase/functions/send-notification/index.ts`
+7. `functions/README.md`

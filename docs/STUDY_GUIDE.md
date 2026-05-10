@@ -45,8 +45,8 @@ The main idea is:
 
 ### Firebase Cloud Functions
 
-- automatic backend actions on Firestore events
-- used for unread counts, mention notifications, and member counts
+- legacy server-side approach kept as a reference
+- not required for the current Spark-plan setup
 
 ### Supabase Storage
 
@@ -85,7 +85,8 @@ The main idea is:
 1. chat controller creates a Firestore message
 2. sender is marked as having read it
 3. the app tries to send notifications to other room members
-4. backend functions update unread counts
+4. the app also updates unread counts
+5. if the text contains mentions, the app resolves mentioned users and sends mention notifications through Supabase
 
 ## 5. Files You Should understand
 
@@ -100,8 +101,8 @@ If you understand these files, you understand most of the project:
 - `lib/services/storage_service.dart`
 - `lib/features/chat/controllers/chat_controller.dart`
 - `lib/features/chat/screens/chat_screen.dart`
-- `functions/index.js`
 - `supabase/functions/send-notification/index.ts`
+- `functions/README.md`
 
 ## 6. Questions And Good Answers
 
@@ -123,7 +124,7 @@ Each message has a `readBy` list, and each room member document also has an `unr
 
 ### "How are mentions implemented?"
 
-The client detects mention text while typing, and the backend parses new message text with a regex. It resolves usernames using the `usernames` collection and sends notifications to valid mentioned users.
+The client detects mention text while typing and also parses sent message text for final mention targets. It resolves usernames using the `usernames` collection and sends notifications to valid mentioned users through the Supabase notification backend.
 
 ### "What does Riverpod do here?"
 
@@ -141,7 +142,7 @@ Riverpod provides app services, real-time streams, and action controllers. It ke
 
 These are reasonable engineering tradeoffs to mention:
 
-- notification logic is split between Firebase Functions and a Supabase Edge Function
+- notification logic is handled by Flutter plus a Supabase Edge Function
 - moderation is basic and based on a simple banned-word list
 - test coverage is still limited
 - some generated files had to be cleaned from the project directory
