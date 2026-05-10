@@ -57,6 +57,7 @@ The same configuration model is used for:
 - Android release builds
 - Windows CI builds
 - Windows release builds
+- Windows installer packaging in GitHub Actions
 
 ## 5. Backend Secrets
 

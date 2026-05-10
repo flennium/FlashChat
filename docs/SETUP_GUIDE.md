@@ -29,10 +29,10 @@ The easiest way to get FlashChat is from the GitHub Releases page.
 1. Open the repository on GitHub.
 2. Go to the `Releases` section.
 3. Download the latest file that ends with:
-   `-windows.zip`
-4. Extract the ZIP file to a folder on your computer.
-5. Open the extracted folder.
-6. Run `flashchat.exe`.
+   `-windows-setup.exe`
+4. Open the installer file.
+5. Follow the installation steps shown on screen.
+6. Launch FlashChat from the installer finish screen, Start menu, or desktop shortcut if you created one.
 
 If Windows SmartScreen appears, choose:
 
@@ -40,6 +40,8 @@ If Windows SmartScreen appears, choose:
 - `Run anyway`
 
 This can happen for unsigned desktop builds distributed outside an app store.
+
+If you prefer a portable version that does not install anything, you can instead download the file that ends with `-windows.zip`, extract it, and run `flashchat.exe`.
 
 ## 3. If You Want To Run The Project Locally
 
@@ -219,13 +221,14 @@ To publish a new release:
 3. Create a matching tag:
 
 ```bash
-git tag v0.1.1
-git push origin v0.1.1
+git tag v0.1.2
+git push origin v0.1.2
 ```
 
 4. GitHub Actions will build:
    - Android APK
-   - Windows ZIP
+   - Windows installer `.exe`
+   - Windows portable ZIP
 5. Both files will be attached to the GitHub Release page.
 
 ## 17. Troubleshooting

@@ -43,7 +43,8 @@ If you want to understand the project deeply, read these in order:
 Published releases can include:
 
 - Android APK files
-- Windows ZIP bundles
+- Windows installer `.exe` files
+- Windows portable ZIP bundles
 
 See the repository `Releases` section for the latest downloadable builds.
 
@@ -67,6 +68,8 @@ The repository includes these workflows:
 
 - `.github/workflows/android-ci.yml`
 - `.github/workflows/release.yml`
+
+The release workflow publishes versioned Android and Windows downloads. For Windows, the main release asset is an installer `.exe`, and a portable ZIP bundle can also be attached for users who prefer a no-install option.
 
 Because sensitive Firebase files are not committed, the workflow expects these GitHub repository secrets:
 

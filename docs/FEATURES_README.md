@@ -213,7 +213,8 @@ The strongest current automated coverage is for mention parsing logic.
 The repository is currently prepared to distribute:
 
 - Android APK builds
-- Windows desktop ZIP bundles
+- Windows desktop installer builds
+- Windows portable ZIP bundles
 
 These can be produced locally or through GitHub Actions releases.
 
