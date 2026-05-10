@@ -178,8 +178,8 @@ jobs:
           path: .github/windows/FlashChat.iss
           options: >-
             /DMyAppVersion=${{ steps.app_version.outputs.version_name }}
-            /DMyAppSourceDir=build\windows\x64\runner\Release
-            /DMyOutputDir=.
+            /DMyAppSourceDir=..\..\build\windows\x64\runner\Release
+            /DMyOutputDir=..\..\
             /DMyOutputBaseFilename=flashchat-${{ steps.app_version.outputs.version_name }}-windows-setup
 
       - name: Package portable Windows bundle

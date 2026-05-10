@@ -7,11 +7,11 @@
 #endif
 
 #ifndef MyAppSourceDir
-  #define MyAppSourceDir "build\\windows\\x64\\runner\\Release"
+  #define MyAppSourceDir "..\\..\\build\\windows\\x64\\runner\\Release"
 #endif
 
 #ifndef MyOutputDir
-  #define MyOutputDir "."
+  #define MyOutputDir "..\\.."
 #endif
 
 #ifndef MyOutputBaseFilename
@@ -35,7 +35,7 @@ PrivilegesRequired=lowest
 ArchitecturesAllowed=x64compatible
 ArchitecturesInstallIn64BitMode=x64compatible
 UninstallDisplayIcon={app}\{#MyAppExeName}
-SetupIconFile=windows\runner\resources\app_icon.ico
+SetupIconFile=..\..\windows\runner\resources\app_icon.ico
 
 [Languages]
 Name: "english"; MessagesFile: "compiler:Default.isl"
