@@ -1,4 +1,4 @@
-name: Android CI
+name: Build And Test
 
 on:
   push:
@@ -8,7 +8,7 @@ on:
   workflow_dispatch:
 
 jobs:
-  analyze-test-build:
+  analyze-and-test:
     runs-on: ubuntu-latest
 
     steps:
@@ -61,6 +61,54 @@ jobs:
       - name: Run tests
         run: flutter test
 
+  build-android:
+    needs: analyze-and-test
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Restore Firebase config files
+        env:
+          FIREBASE_OPTIONS_DART: ${{ secrets.FIREBASE_OPTIONS_DART }}
+          GOOGLE_SERVICES_JSON: ${{ secrets.GOOGLE_SERVICES_JSON }}
+        run: |
+          if [ -z "$FIREBASE_OPTIONS_DART" ]; then
+            echo "Missing FIREBASE_OPTIONS_DART secret"
+            exit 1
+          fi
+          if [ -z "$GOOGLE_SERVICES_JSON" ]; then
+            echo "Missing GOOGLE_SERVICES_JSON secret"
+            exit 1
+          fi
+
+          mkdir -p lib android/app
+          printf '%s' "$FIREBASE_OPTIONS_DART" > lib/firebase_options.dart
+          printf '%s' "$GOOGLE_SERVICES_JSON" > android/app/google-services.json
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Read application version
+        id: app_version
+        run: |
+          VERSION=$(grep '^version:' pubspec.yaml | awk '{print $2}')
+          VERSION_NAME=${VERSION%%+*}
+          echo "version_name=$VERSION_NAME" >> "$GITHUB_OUTPUT"
+
       - name: Build Android release APK
         run: >
           flutter build apk --release
@@ -73,6 +121,71 @@ jobs:
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: flashchat-${{ steps.app_version.outputs.version_name }}-apk
+          name: flashchat-${{ steps.app_version.outputs.version_name }}-android-apk
           path: build/app/outputs/flutter-apk/app-release.apk
+          if-no-files-found: error
+
+  build-windows:
+    needs: analyze-and-test
+    runs-on: windows-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Restore Firebase options file
+        shell: pwsh
+        env:
+          FIREBASE_OPTIONS_DART: ${{ secrets.FIREBASE_OPTIONS_DART }}
+        run: |
+          if ([string]::IsNullOrWhiteSpace($env:FIREBASE_OPTIONS_DART)) {
+            Write-Error "Missing FIREBASE_OPTIONS_DART secret"
+            exit 1
+          }
+          New-Item -ItemType Directory -Force -Path lib | Out-Null
+          Set-Content -Path lib/firebase_options.dart -Value $env:FIREBASE_OPTIONS_DART -NoNewline
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Read application version
+        id: app_version
+        shell: pwsh
+        run: |
+          $versionLine = Select-String -Path pubspec.yaml -Pattern '^version:'
+          $version = ($versionLine.Line -split '\s+')[1]
+          $versionName = $version.Split('+')[0]
+          "version_name=$versionName" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+
+      - name: Build Windows release bundle
+        run: >
+          flutter build windows --release
+          --dart-define=SUPABASE_URL=${{ secrets.SUPABASE_URL }}
+          --dart-define=SUPABASE_ANON_KEY=${{ secrets.SUPABASE_ANON_KEY }}
+          --dart-define=SUPABASE_AVATAR_BUCKET=${{ secrets.SUPABASE_AVATAR_BUCKET }}
+          --dart-define=SUPABASE_CHAT_IMAGE_BUCKET=${{ secrets.SUPABASE_CHAT_IMAGE_BUCKET }}
+          --dart-define=GOOGLE_WEB_CLIENT_ID=${{ secrets.GOOGLE_WEB_CLIENT_ID }}
+
+      - name: Package Windows bundle
+        shell: pwsh
+        run: |
+          $zipPath = "flashchat-$env:VERSION_NAME-windows.zip"
+          Compress-Archive `
+            -Path build/windows/x64/runner/Release/* `
+            -DestinationPath $zipPath `
+            -Force
+        env:
+          VERSION_NAME: ${{ steps.app_version.outputs.version_name }}
+
+      - name: Upload Windows artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: flashchat-${{ steps.app_version.outputs.version_name }}-windows
+          path: flashchat-${{ steps.app_version.outputs.version_name }}-windows.zip
           if-no-files-found: error

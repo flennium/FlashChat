@@ -208,7 +208,16 @@ Current tests include:
 
 The strongest current automated coverage is for mention parsing logic.
 
-## 15. Feature Gaps / Improvement Ideas
+## 15. Distribution Targets
+
+The repository is currently prepared to distribute:
+
+- Android APK builds
+- Windows desktop ZIP bundles
+
+These can be produced locally or through GitHub Actions releases.
+
+## 16. Feature Gaps / Improvement Ideas
 
 Possible future improvements:
 

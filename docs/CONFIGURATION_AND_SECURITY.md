@@ -51,6 +51,13 @@ Required CI secrets:
 - `FIREBASE_OPTIONS_DART`
 - `GOOGLE_SERVICES_JSON`
 
+The same configuration model is used for:
+
+- Android CI builds
+- Android release builds
+- Windows CI builds
+- Windows release builds
+
 ## 5. Backend Secrets
 
 The Supabase Edge Function for notifications expects:

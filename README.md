@@ -30,50 +30,22 @@ FlashChat is a Flutter chat application backed mainly by Firebase, with Supabase
 
 If you want to understand the project deeply, read these in order:
 
-1. [Architecture](docs/ARCHITECTURE_README.md)
-2. [Data Model](docs/DATA_MODEL_README.md)
-3. [Features](docs/FEATURES_README.md)
-4. [Backend And Ops](docs/BACKEND_README.md)
-5. [Configuration And Security](docs/CONFIGURATION_AND_SECURITY.md)
-6. [Study Guide](docs/STUDY_GUIDE.md)
+1. [Setup Guide](docs/SETUP_GUIDE.md)
+2. [Architecture](docs/ARCHITECTURE_README.md)
+3. [Data Model](docs/DATA_MODEL_README.md)
+4. [Features](docs/FEATURES_README.md)
+5. [Backend And Ops](docs/BACKEND_README.md)
+6. [Configuration And Security](docs/CONFIGURATION_AND_SECURITY.md)
+7. [Study Guide](docs/STUDY_GUIDE.md)
 
-## Quick Run
+## Downloads
 
-```bash
-flutter pub get
-flutter run
-```
+Published releases can include:
 
-## Local Environment
+- Android APK files
+- Windows ZIP bundles
 
-This project uses Flutter `--dart-define` values for runtime configuration.
-
-Files included for setup:
-
-- `.env.local`: local-only file for development on your machine, ignored by Git
-- `.env.github.example`: tracked template for GitHub Actions secrets
-
-For local runs on Windows PowerShell, you can use:
-
-```powershell
-.\scripts\flutter-with-env.ps1 run
-```
-
-For local APK builds:
-
-```powershell
-.\scripts\flutter-with-env.ps1 build apk --release
-```
-
-## Android Release
-
-```bash
-flutter build apk --release
-```
-
-Latest built APK path:
-
-`build/app/outputs/flutter-apk/app-release.apk`
+See the repository `Releases` section for the latest downloadable builds.
 
 ## Important Runtime Config
 
@@ -89,24 +61,12 @@ Latest built APK path:
 
 Generated/local artifacts such as `build/`, `.dart_tool/`, IDE folders, `functions/node_modules/`, and release APKs should not live in the long-term project snapshot. The `.gitignore` file now reflects that more clearly.
 
-## Verification
-
-Current project checks used during maintenance:
-
-```bash
-flutter analyze
-flutter test
-```
-
 ## GitHub Actions
 
-The repository includes a GitHub Actions workflow at `.github/workflows/android-ci.yml`.
+The repository includes these workflows:
 
-It does three things on `push`, `pull_request`, or manual trigger:
-
-- runs `flutter analyze`
-- runs `flutter test`
-- builds an Android release APK and uploads it as an artifact
+- `.github/workflows/android-ci.yml`
+- `.github/workflows/release.yml`
 
 Because sensitive Firebase files are not committed, the workflow expects these GitHub repository secrets:
 
@@ -126,30 +86,6 @@ How to set the required file secrets:
 1. Copy the full contents of your local `lib/firebase_options.dart` into `FIREBASE_OPTIONS_DART`.
 2. Copy the full contents of your local `android/app/google-services.json` into `GOOGLE_SERVICES_JSON`.
 3. In GitHub, go to `Settings -> Secrets and variables -> Actions -> New repository secret`.
-
-## Releases And Versioning
-
-The repository also includes `.github/workflows/android-release.yml`.
-
-Release flow:
-
-1. Update `version:` in `pubspec.yaml`
-2. Commit the version change
-3. Create a matching Git tag in the form `vX.Y.Z`
-4. Push the tag to GitHub
-
-Example:
-
-```bash
-git tag v0.1.0
-git push origin v0.1.0
-```
-
-When the tag matches the `pubspec.yaml` version, GitHub Actions will:
-
-- build the Android release APK
-- create a GitHub Release
-- upload `flashchat-X.Y.Z-android-release.apk` to the Releases section
 
 ## Publication Notes
 
