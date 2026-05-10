@@ -115,8 +115,10 @@ class _MessageInputState extends ConsumerState<MessageInput> {
                   child: TextField(
                     controller: _controller,
                     focusNode: _focusNode,
-                    autocorrect: false,
-                    enableSuggestions: false,
+                    autocorrect: true,
+                    enableSuggestions: true,
+                    keyboardType: TextInputType.multiline,
+                    textCapitalization: TextCapitalization.sentences,
                     minLines: 1,
                     maxLines: 4,
                     onChanged: _onTextChanged,
