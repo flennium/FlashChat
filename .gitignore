@@ -1,0 +1,36 @@
+# Flutter / Dart
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+.pub/
+build/
+coverage/
+release/
+*.apk
+*.aab
+
+# Firebase
+firebase-debug.log
+firebase-debug.*.log
+.firebaserc
+firebase.json
+lib/firebase_options.dart
+android/app/google-services.json
+functions/node_modules/
+*-firebase-adminsdk-*.json
+supabase/.temp/
+
+# IDE
+.idea/
+.vscode/
+*.iml
+.claude/
+android/signingReport.txt
+
+# OS
+Thumbs.db
+Desktop.ini
+
+# Local environment files
+.env.local

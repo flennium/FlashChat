@@ -1,0 +1,80 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function roomAdminEmail() {
+      return exists(/databases/$(database)/documents/app/config)
+        ? get(/databases/$(database)/documents/app/config).data.roomAdminEmail
+        : '';
+    }
+
+    function isRoomAdmin() {
+      return signedIn()
+        && request.auth.token.email != null
+        && request.auth.token.email == roomAdminEmail();
+    }
+
+    function isMemberCountIncrement() {
+      return request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'memberCount'
+        ])
+        && request.resource.data.memberCount is int
+        && resource.data.memberCount is int
+        && request.resource.data.memberCount == resource.data.memberCount + 1;
+    }
+
+    match /app/{docId} {
+      allow read: if signedIn();
+      allow write: if false;
+    }
+
+    match /users/{uid} {
+      allow read: if signedIn();
+      allow write: if signedIn() && request.auth.uid == uid;
+    }
+
+    match /usernames/{username} {
+      allow read: if signedIn();
+      allow create: if signedIn()
+        && request.resource.data.uid == request.auth.uid;
+      allow delete: if signedIn()
+        && resource.data.uid == request.auth.uid;
+    }
+
+    match /rooms/{roomId} {
+      allow read: if signedIn();
+      allow create: if signedIn()
+        && request.resource.data.createdBy == request.auth.uid;
+      allow update, delete: if signedIn()
+        && (
+          resource.data.createdBy == request.auth.uid ||
+          isRoomAdmin() ||
+          isMemberCountIncrement()
+        );
+
+      match /members/{uid} {
+        allow read: if signedIn();
+        allow write: if signedIn() && request.auth.uid == uid;
+      }
+
+      match /messages/{messageId} {
+        allow read: if signedIn();
+        allow create: if signedIn()
+          && request.resource.data.senderId == request.auth.uid;
+        allow update: if signedIn()
+          && (
+            resource.data.senderId == request.auth.uid ||
+            request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+              'readBy',
+              'reactions'
+            ])
+          );
+        allow delete: if signedIn()
+          && resource.data.senderId == request.auth.uid;
+      }
+    }
+  }
+}
