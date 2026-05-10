@@ -10,6 +10,21 @@ import '../../../models/room_model.dart';
 import '../../../models/user_model.dart';
 import '../controllers/chat_controller.dart';
 
+const _quickEmojis = [
+  '😀',
+  '😂',
+  '😍',
+  '🥳',
+  '😎',
+  '🤔',
+  '😭',
+  '🔥',
+  '❤️',
+  '👍',
+  '🙏',
+  '🎉',
+];
+
 class MessageInput extends ConsumerStatefulWidget {
   const MessageInput({super.key, required this.room});
 
@@ -24,12 +39,13 @@ class _MessageInputState extends ConsumerState<MessageInput> {
   final _focusNode = FocusNode();
   Timer? _typingTimer;
   ActiveMentionQuery? _activeMention;
+  bool _showEmojiTray = false;
 
   @override
   void initState() {
     super.initState();
     _controller.addListener(_updateMentionQuery);
-    _focusNode.addListener(_updateMentionQuery);
+    _focusNode.addListener(_handleFocusChange);
   }
 
   @override
@@ -40,12 +56,18 @@ class _MessageInputState extends ConsumerState<MessageInput> {
     super.dispose();
   }
 
+  void _handleFocusChange() {
+    if (_focusNode.hasFocus && _showEmojiTray) {
+      setState(() => _showEmojiTray = false);
+    }
+    _updateMentionQuery();
+  }
+
   void _onTextChanged(String value) {
     final notEmpty = value.trim().isNotEmpty;
     ref.read(chatControllerProvider.notifier).setTyping(widget.room, notEmpty);
     _typingTimer?.cancel();
     if (notEmpty) {
-      // Auto-cancel typing status after 3 s of inactivity
       _typingTimer = Timer(const Duration(seconds: 3), () {
         ref.read(chatControllerProvider.notifier).setTyping(widget.room, false);
       });
@@ -82,7 +104,6 @@ class _MessageInputState extends ConsumerState<MessageInput> {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          // Reply preview banner
           if (replyMessage != null)
             _ReplyPreview(
               message: replyMessage,
@@ -98,47 +119,101 @@ class _MessageInputState extends ConsumerState<MessageInput> {
               query: mentionQuery,
               onSelected: _insertMention,
             ),
+          if (_showEmojiTray)
+            _EmojiTray(
+              theme: theme,
+              onSelected: _insertEmoji,
+            ),
           Padding(
             padding: const EdgeInsets.fromLTRB(12, 4, 12, 12),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                IconButton(
-                  onPressed: state.isLoading
-                      ? null
-                      : () => ref
-                          .read(chatControllerProvider.notifier)
-                          .sendImage(widget.room),
-                  icon: const Icon(Icons.image_outlined),
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                color: theme.colorScheme.surfaceContainerHigh,
+                borderRadius: BorderRadius.circular(24),
+                border: Border.all(
+                  color: theme.colorScheme.outlineVariant.withValues(alpha: 0.7),
                 ),
-                Expanded(
-                  child: TextField(
-                    controller: _controller,
-                    focusNode: _focusNode,
-                    autocorrect: true,
-                    enableSuggestions: true,
-                    keyboardType: TextInputType.multiline,
-                    textCapitalization: TextCapitalization.sentences,
-                    minLines: 1,
-                    maxLines: 4,
-                    onChanged: _onTextChanged,
-                    decoration:
-                        const InputDecoration(hintText: 'Write a message'),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.04),
+                    blurRadius: 10,
+                    offset: const Offset(0, 2),
                   ),
+                ],
+              ),
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(8, 8, 8, 8),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    IconButton(
+                      onPressed: state.isLoading
+                          ? null
+                          : () => ref
+                              .read(chatControllerProvider.notifier)
+                              .sendImage(widget.room),
+                      icon: const Icon(Icons.image_outlined),
+                      tooltip: 'Send image',
+                    ),
+                    IconButton(
+                      onPressed: state.isLoading
+                          ? null
+                          : () {
+                              FocusScope.of(context).unfocus();
+                              setState(() => _showEmojiTray = !_showEmojiTray);
+                            },
+                      icon: Icon(
+                        _showEmojiTray
+                            ? Icons.keyboard_rounded
+                            : Icons.emoji_emotions_outlined,
+                      ),
+                      tooltip: _showEmojiTray ? 'Show keyboard' : 'Show emojis',
+                    ),
+                    Expanded(
+                      child: TextField(
+                        controller: _controller,
+                        focusNode: _focusNode,
+                        autocorrect: true,
+                        enableSuggestions: true,
+                        keyboardType: TextInputType.multiline,
+                        textCapitalization: TextCapitalization.sentences,
+                        minLines: 1,
+                        maxLines: 5,
+                        onChanged: _onTextChanged,
+                        decoration: const InputDecoration(
+                          hintText: 'Write a message',
+                          border: InputBorder.none,
+                          isCollapsed: true,
+                          contentPadding: EdgeInsets.symmetric(
+                            horizontal: 4,
+                            vertical: 12,
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    FilledButton(
+                      onPressed: state.isLoading ? null : _send,
+                      style: FilledButton.styleFrom(
+                        minimumSize: const Size(72, 44),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(18),
+                        ),
+                      ),
+                      child: state.isLoading
+                          ? const SizedBox(
+                              width: 16,
+                              height: 16,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: Colors.white,
+                              ),
+                            )
+                          : const Text('Send'),
+                    ),
+                  ],
                 ),
-                const SizedBox(width: 8),
-                FilledButton(
-                  onPressed: state.isLoading ? null : _send,
-                  child: state.isLoading
-                      ? const SizedBox(
-                          width: 16,
-                          height: 16,
-                          child: CircularProgressIndicator(
-                              strokeWidth: 2, color: Colors.white),
-                        )
-                      : const Text('Send'),
-                ),
-              ],
+              ),
             ),
           ),
         ],
@@ -154,7 +229,7 @@ class _MessageInputState extends ConsumerState<MessageInput> {
     Map<String, dynamic>? replyTo;
     if (replyMessage != null) {
       final snippet = replyMessage.text.length > 80
-          ? '${replyMessage.text.substring(0, 80)}…'
+          ? '${replyMessage.text.substring(0, 80)}...'
           : replyMessage.text;
       replyTo = {
         'id': replyMessage.id,
@@ -195,11 +270,69 @@ class _MessageInputState extends ConsumerState<MessageInput> {
       composing: TextRange.empty,
     );
 
+    _focusNode.requestFocus();
     _updateMentionQuery();
+  }
+
+  void _insertEmoji(String emoji) {
+    final selection = _controller.selection;
+    final text = _controller.text;
+    final start = selection.start >= 0 ? selection.start : text.length;
+    final end = selection.end >= 0 ? selection.end : text.length;
+    final nextText = text.replaceRange(start, end, emoji);
+    final nextOffset = start + emoji.length;
+    _controller.value = TextEditingValue(
+      text: nextText,
+      selection: TextSelection.collapsed(offset: nextOffset),
+    );
+    _focusNode.requestFocus();
+    _onTextChanged(_controller.text);
   }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
+class _EmojiTray extends StatelessWidget {
+  const _EmojiTray({
+    required this.theme,
+    required this.onSelected,
+  });
+
+  final ThemeData theme;
+  final ValueChanged<String> onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.fromLTRB(12, 0, 12, 4),
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surface,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: theme.colorScheme.outlineVariant.withValues(alpha: 0.7),
+        ),
+      ),
+      child: Wrap(
+        spacing: 6,
+        runSpacing: 6,
+        children: _quickEmojis
+            .map(
+              (emoji) => InkWell(
+                onTap: () => onSelected(emoji),
+                borderRadius: BorderRadius.circular(14),
+                child: Padding(
+                  padding: const EdgeInsets.all(8),
+                  child: Text(
+                    emoji,
+                    style: const TextStyle(fontSize: 24),
+                  ),
+                ),
+              ),
+            )
+            .toList(),
+      ),
+    );
+  }
+}
 
 class _ReplyPreview extends StatelessWidget {
   const _ReplyPreview({
@@ -220,9 +353,9 @@ class _ReplyPreview extends StatelessWidget {
     final snippet = message.isDeleted
         ? 'Message deleted'
         : message.imageUrl.isNotEmpty && message.text.isEmpty
-            ? '📷 Photo'
+            ? 'Photo'
             : message.text.length > 60
-                ? '${message.text.substring(0, 60)}…'
+                ? '${message.text.substring(0, 60)}...'
                 : message.text;
 
     return Container(

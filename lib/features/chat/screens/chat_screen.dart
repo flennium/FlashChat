@@ -2,6 +2,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/providers/app_providers.dart';
+import '../../../core/utils/platform_support.dart';
 import '../../../models/message_model.dart';
 import '../../../models/room_model.dart';
 import '../controllers/chat_controller.dart';
@@ -358,13 +359,21 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final roomAsync = ref.watch(roomByIdProvider(widget.room.id));
+    final supportsDesktopLiveSignals = !PlatformSupport.isDesktop;
+    final roomAsync = supportsDesktopLiveSignals
+        ? ref.watch(roomByIdProvider(widget.room.id))
+        : const AsyncValue<RoomModel?>.data(null);
     final room = roomAsync.value ?? widget.room;
     final messagesAsync = ref.watch(roomMessagesProvider(widget.room.id));
-    final onlineCount = ref.watch(onlineCountProvider).value ?? 0;
-    final announcement = ref.watch(announcementProvider).value ?? '';
-    final typingUsers =
-        ref.watch(typingUsersProvider(widget.room.id)).value ?? [];
+    final onlineCount = supportsDesktopLiveSignals
+        ? ref.watch(onlineCountProvider).value ?? 0
+        : 0;
+    final announcement = supportsDesktopLiveSignals
+        ? ref.watch(announcementProvider).value ?? ''
+        : '';
+    final typingUsers = supportsDesktopLiveSignals
+        ? ref.watch(typingUsersProvider(widget.room.id)).value ?? []
+        : const <String>[];
     final currentUid = ref.watch(currentUserProfileProvider).value?.uid ?? '';
     final currentProfile = ref.watch(currentUserProfileProvider).value;
     final roomAdminEmail = ref.watch(roomAdminEmailProvider).value ?? '';

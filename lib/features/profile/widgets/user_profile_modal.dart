@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/providers/app_providers.dart';
 import '../../../core/utils/date_formatter.dart';
+import '../../../models/user_model.dart';
 
 void showUserProfileModal(BuildContext context, String uid) {
   showModalBottomSheet(
@@ -26,21 +27,22 @@ class UserProfileModal extends ConsumerWidget {
     final theme = Theme.of(context);
 
     return DraggableScrollableSheet(
-      initialChildSize: 0.55,
-      minChildSize: 0.35,
-      maxChildSize: 0.85,
+      initialChildSize: 0.72,
+      minChildSize: 0.45,
+      maxChildSize: 0.94,
       snap: true,
-      snapSizes: const [0.55, 0.85],
-      builder: (ctx, scrollController) {
+      snapSizes: const [0.72, 0.94],
+      builder: (context, scrollController) {
         return Container(
+          clipBehavior: Clip.antiAlias,
           decoration: BoxDecoration(
             color: theme.colorScheme.surface,
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(32)),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withValues(alpha: 0.15),
-                blurRadius: 20,
-                offset: const Offset(0, -4),
+                color: Colors.black.withValues(alpha: 0.18),
+                blurRadius: 30,
+                offset: const Offset(0, -6),
               ),
             ],
           ),
@@ -50,177 +52,116 @@ class UserProfileModal extends ConsumerWidget {
                 return const Center(child: Text('User not found'));
               }
 
-              // Prefer the live RTDB online status; fall back to lastSeen proxy.
               final isOnline = onlineAsync.value ??
                   (user.lastSeen != null &&
-                      DateTime.now()
-                              .difference(user.lastSeen!)
-                              .inMinutes <
-                          5);
+                      DateTime.now().difference(user.lastSeen!).inMinutes < 5);
 
-              return ListView(
+              return CustomScrollView(
                 controller: scrollController,
-                padding: EdgeInsets.zero,
-                children: [
-                  // Drag handle
-                  Center(
-                    child: Container(
-                      margin: const EdgeInsets.only(top: 12, bottom: 8),
-                      width: 36,
-                      height: 4,
-                      decoration: BoxDecoration(
-                        color: theme.colorScheme.onSurface.withValues(alpha: 0.2),
-                        borderRadius: BorderRadius.circular(2),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  // Avatar with gradient ring + online dot
-                  Center(
-                    child: Stack(
-                      alignment: Alignment.bottomRight,
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.all(3),
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            gradient: LinearGradient(
-                              colors: [
-                                theme.colorScheme.primary,
-                                theme.colorScheme.secondary,
-                              ],
-                              begin: Alignment.topLeft,
-                              end: Alignment.bottomRight,
-                            ),
-                          ),
-                          child: CircleAvatar(
-                            radius: 52,
-                            backgroundColor:
-                                theme.colorScheme.surfaceContainerHighest,
-                            backgroundImage: user.avatarUrl.isNotEmpty
-                                ? NetworkImage(user.avatarUrl)
-                                : null,
-                            child: user.avatarUrl.isEmpty
-                                ? Text(
-                                    user.name.isNotEmpty
-                                        ? user.name[0].toUpperCase()
-                                        : '?',
-                                    style: TextStyle(
-                                      fontSize: 40,
-                                      fontWeight: FontWeight.bold,
-                                      color: theme.colorScheme.primary,
-                                    ),
-                                  )
-                                : null,
-                          ),
-                        ),
-                        Container(
-                          width: 20,
-                          height: 20,
-                          decoration: BoxDecoration(
-                            color: isOnline
-                                ? const Color(0xFF10B981)
-                                : theme.colorScheme.onSurface
-                                    .withValues(alpha: 0.3),
-                            shape: BoxShape.circle,
-                            border: Border.all(
-                              color: theme.colorScheme.surface,
-                              width: 2.5,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 14),
-                  // Display name
-                  Center(
-                    child: Text(
-                      user.name,
-                      style: theme.textTheme.headlineSmall
-                          ?.copyWith(fontWeight: FontWeight.bold),
-                    ),
-                  ),
-                  // @username
-                  if (user.username.isNotEmpty) ...[
-                    const SizedBox(height: 4),
-                    Center(
-                      child: Text(
-                        '@${user.username}',
-                        style: theme.textTheme.bodyMedium?.copyWith(
-                          color: theme.colorScheme.primary,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ),
-                  ],
-                  const SizedBox(height: 6),
-                  // Online status label
-                  Center(
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Container(
-                          width: 8,
-                          height: 8,
-                          decoration: BoxDecoration(
-                            color: isOnline
-                                ? const Color(0xFF10B981)
-                                : theme.colorScheme.onSurface
-                                    .withValues(alpha: 0.3),
-                            shape: BoxShape.circle,
-                          ),
-                        ),
-                        const SizedBox(width: 6),
-                        Text(
-                          isOnline
-                              ? 'Online'
-                              : user.lastSeen != null
-                                  ? 'Last seen ${_relativeTime(user.lastSeen!)}'
-                                  : 'Offline',
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            color: isOnline
-                                ? const Color(0xFF10B981)
-                                : theme.colorScheme.onSurface
-                                    .withValues(alpha: 0.5),
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 24),
-                  // Info cards
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                slivers: [
+                  SliverToBoxAdapter(
                     child: Column(
                       children: [
-                        if (user.bio.isNotEmpty) ...[
-                          _InfoCard(
-                            icon: Icons.info_outline_rounded,
-                            label: 'About',
-                            value: user.bio,
-                            theme: theme,
-                          ),
-                          const SizedBox(height: 12),
-                        ],
-                        _InfoCard(
-                          icon: Icons.alternate_email_rounded,
-                          label: 'Email',
-                          value: user.email,
-                          theme: theme,
-                        ),
                         const SizedBox(height: 12),
-                        _InfoCard(
-                          icon: Icons.calendar_today_rounded,
-                          label: 'Member since',
-                          value: DateFormatter.memberSince(user.createdAt),
-                          theme: theme,
+                        Container(
+                          width: 44,
+                          height: 5,
+                          decoration: BoxDecoration(
+                            color: theme.colorScheme.onSurface
+                                .withValues(alpha: 0.16),
+                            borderRadius: BorderRadius.circular(999),
+                          ),
+                        ),
+                        const SizedBox(height: 18),
+                        _ProfileHeader(
+                          user: user,
+                          isOnline: isOnline,
+                        ),
+                        const SizedBox(height: 18),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 20),
+                          child: Row(
+                            children: [
+                              Expanded(
+                                child: _StatCard(
+                                  icon: Icons.calendar_month_rounded,
+                                  label: 'Member since',
+                                  value:
+                                      DateFormatter.memberSince(user.createdAt),
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: _StatCard(
+                                  icon: Icons.schedule_rounded,
+                                  label: isOnline ? 'Status' : 'Last seen',
+                                  value: isOnline
+                                      ? 'Active now'
+                                      : user.lastSeen != null
+                                          ? _relativeTime(user.lastSeen!)
+                                          : 'Recently offline',
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 18),
+                      ],
+                    ),
+                  ),
+                  SliverPadding(
+                    padding: const EdgeInsets.fromLTRB(20, 0, 20, 28),
+                    sliver: SliverList.list(
+                      children: [
+                        if (user.bio.trim().isNotEmpty) ...[
+                          _ProfilePanel(
+                            title: 'About',
+                            icon: Icons.auto_awesome_rounded,
+                            child: Text(
+                              user.bio.trim(),
+                              style: theme.textTheme.bodyLarge?.copyWith(
+                                height: 1.45,
+                                color: theme.colorScheme.onSurface
+                                    .withValues(alpha: 0.86),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 14),
+                        ],
+                        _ProfilePanel(
+                          title: 'Contact',
+                          icon: Icons.mail_outline_rounded,
+                          child: _InfoRow(
+                            icon: Icons.alternate_email_rounded,
+                            label: 'Email',
+                            value: user.email,
+                          ),
+                        ),
+                        const SizedBox(height: 14),
+                        _ProfilePanel(
+                          title: 'Snapshot',
+                          icon: Icons.person_outline_rounded,
+                          child: Column(
+                            children: [
+                              _InfoRow(
+                                icon: Icons.badge_outlined,
+                                label: 'Display name',
+                                value: user.name,
+                              ),
+                              const SizedBox(height: 12),
+                              _InfoRow(
+                                icon: Icons.tag_rounded,
+                                label: 'Username',
+                                value: user.username.isNotEmpty
+                                    ? '@${user.username}'
+                                    : 'Not set',
+                              ),
+                            ],
+                          ),
                         ),
                       ],
                     ),
                   ),
-                  const SizedBox(height: 32),
                 ],
               );
             },
@@ -230,10 +171,10 @@ class UserProfileModal extends ConsumerWidget {
                 child: CircularProgressIndicator(),
               ),
             ),
-            error: (e, _) => Center(
+            error: (error, _) => Center(
               child: Padding(
                 padding: const EdgeInsets.all(24),
-                child: Text(e.toString()),
+                child: Text(error.toString()),
               ),
             ),
           ),
@@ -241,66 +182,348 @@ class UserProfileModal extends ConsumerWidget {
       },
     );
   }
+}
 
-  String _relativeTime(DateTime dt) {
-    final diff = DateTime.now().difference(dt);
-    if (diff.inMinutes < 1) return 'just now';
-    if (diff.inMinutes < 60) return '${diff.inMinutes}m ago';
-    if (diff.inHours < 24) return '${diff.inHours}h ago';
-    return DateFormatter.memberSince(dt);
+String _relativeTime(DateTime dt) {
+  final diff = DateTime.now().difference(dt);
+  if (diff.inMinutes < 1) return 'Just now';
+  if (diff.inMinutes < 60) return '${diff.inMinutes}m ago';
+  if (diff.inHours < 24) return '${diff.inHours}h ago';
+  if (diff.inDays < 7) return '${diff.inDays}d ago';
+  if (diff.inDays < 30) return '${(diff.inDays / 7).floor()}w ago';
+  if (diff.inDays < 365) return '${(diff.inDays / 30).floor()}mo ago';
+  if (diff.inDays < 365 * 5) return '${(diff.inDays / 365).floor()}y ago';
+  return DateFormatter.memberSince(dt);
+}
+
+class _ProfileHeader extends StatelessWidget {
+  const _ProfileHeader({
+    required this.user,
+    required this.isOnline,
+  });
+
+  final UserModel user;
+  final bool isOnline;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final initials = user.name.isNotEmpty ? user.name[0].toUpperCase() : '?';
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+      child: Container(
+        padding: const EdgeInsets.fromLTRB(20, 20, 20, 22),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(30),
+          gradient: LinearGradient(
+            colors: [
+              theme.colorScheme.primary.withValues(alpha: 0.14),
+              theme.colorScheme.secondary.withValues(alpha: 0.12),
+              theme.colorScheme.tertiary.withValues(alpha: 0.08),
+            ],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          border: Border.all(
+            color: theme.colorScheme.primary.withValues(alpha: 0.12),
+          ),
+        ),
+        child: Row(
+          children: [
+            Stack(
+              clipBehavior: Clip.none,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(4),
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    gradient: LinearGradient(
+                      colors: [
+                        theme.colorScheme.primary,
+                        theme.colorScheme.secondary,
+                      ],
+                    ),
+                  ),
+                  child: CircleAvatar(
+                    radius: 42,
+                    backgroundColor:
+                        theme.colorScheme.surfaceContainerHighest,
+                    backgroundImage: user.avatarUrl.isNotEmpty
+                        ? NetworkImage(user.avatarUrl)
+                        : null,
+                    child: user.avatarUrl.isEmpty
+                        ? Text(
+                            initials,
+                            style: theme.textTheme.headlineMedium?.copyWith(
+                              fontWeight: FontWeight.w800,
+                              color: theme.colorScheme.primary,
+                            ),
+                          )
+                        : null,
+                  ),
+                ),
+                Positioned(
+                  right: 4,
+                  bottom: 2,
+                  child: Container(
+                    width: 18,
+                    height: 18,
+                    decoration: BoxDecoration(
+                      color: isOnline
+                          ? const Color(0xFF16A34A)
+                          : theme.colorScheme.outlineVariant,
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: theme.colorScheme.surface,
+                        width: 2.5,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    user.name,
+                    style: theme.textTheme.headlineSmall?.copyWith(
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: -0.4,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    user.username.isNotEmpty
+                        ? '@${user.username}'
+                        : 'FlashChat member',
+                    style: theme.textTheme.titleSmall?.copyWith(
+                      color: theme.colorScheme.primary,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  _StatusPill(isOnline: isOnline),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }
 
-class _InfoCard extends StatelessWidget {
-  const _InfoCard({
+class _StatusPill extends StatelessWidget {
+  const _StatusPill({required this.isOnline});
+
+  final bool isOnline;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: isOnline
+            ? const Color(0xFFDCFCE7)
+            : theme.colorScheme.surfaceContainerHighest,
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 8,
+            height: 8,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: isOnline
+                  ? const Color(0xFF16A34A)
+                  : theme.colorScheme.outline,
+            ),
+          ),
+          const SizedBox(width: 8),
+          Text(
+            isOnline ? 'Online now' : 'Currently offline',
+            style: theme.textTheme.bodyMedium?.copyWith(
+              fontWeight: FontWeight.w700,
+              color: isOnline
+                  ? const Color(0xFF166534)
+                  : theme.colorScheme.onSurface.withValues(alpha: 0.72),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _StatCard extends StatelessWidget {
+  const _StatCard({
     required this.icon,
     required this.label,
     required this.value,
-    required this.theme,
   });
 
   final IconData icon;
   final String label;
   final String value;
-  final ThemeData theme;
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
     return Container(
-      padding: const EdgeInsets.all(14),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.6),
-        borderRadius: BorderRadius.circular(14),
+        color: theme.colorScheme.surfaceContainerLowest,
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(
+          color: theme.colorScheme.outlineVariant.withValues(alpha: 0.55),
+        ),
       ),
-      child: Row(
+      child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(icon, size: 18, color: theme.colorScheme.primary),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  label,
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
-                    fontWeight: FontWeight.w600,
-                    fontSize: 11,
-                    letterSpacing: 0.5,
-                  ),
-                ),
-                const SizedBox(height: 3),
-                Text(
-                  value,
-                  style: theme.textTheme.bodyMedium
-                      ?.copyWith(fontWeight: FontWeight.w500),
-                ),
-              ],
+          Icon(icon, color: theme.colorScheme.primary),
+          const SizedBox(height: 12),
+          Text(
+            label,
+            style: theme.textTheme.labelMedium?.copyWith(
+              color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            value,
+            style: theme.textTheme.titleMedium?.copyWith(
+              fontWeight: FontWeight.w800,
             ),
           ),
         ],
       ),
+    );
+  }
+}
+
+class _ProfilePanel extends StatelessWidget {
+  const _ProfilePanel({
+    required this.title,
+    required this.icon,
+    required this.child,
+  });
+
+  final String title;
+  final IconData icon;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surfaceContainerLowest,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(
+          color: theme.colorScheme.outlineVariant.withValues(alpha: 0.45),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 36,
+                height: 36,
+                decoration: BoxDecoration(
+                  color: theme.colorScheme.primary.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(
+                  icon,
+                  color: theme.colorScheme.primary,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Text(
+                title,
+                style: theme.textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          child,
+        ],
+      ),
+    );
+  }
+}
+
+class _InfoRow extends StatelessWidget {
+  const _InfoRow({
+    required this.icon,
+    required this.label,
+    required this.value,
+  });
+
+  final IconData icon;
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          width: 36,
+          height: 36,
+          decoration: BoxDecoration(
+            color: theme.colorScheme.secondary.withValues(alpha: 0.12),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Icon(
+            icon,
+            size: 18,
+            color: theme.colorScheme.secondary,
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                label,
+                style: theme.textTheme.labelMedium?.copyWith(
+                  color: theme.colorScheme.onSurface.withValues(alpha: 0.56),
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                value,
+                style: theme.textTheme.bodyLarge?.copyWith(
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 }

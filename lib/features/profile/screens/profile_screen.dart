@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/providers/app_providers.dart';
 import '../../../core/utils/date_formatter.dart';
 import '../../../core/utils/validators.dart';
+import '../../../models/user_model.dart';
 import '../controllers/profile_controller.dart';
 import '../widgets/avatar_picker.dart';
 
@@ -25,7 +26,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   bool? _usernameAvailable;
   bool _checkingUsername = false;
   String _initialUsername = '';
-
   bool _populated = false;
 
   @override
@@ -37,7 +37,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     super.dispose();
   }
 
-  void _populate(user) {
+  void _populate(UserModel user) {
     if (_populated) return;
     _populated = true;
     _nameController.text = user.name;
@@ -53,7 +53,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       _checkingUsername = false;
     });
     final v = value.trim().toLowerCase();
-    if (v == _initialUsername || v.isEmpty || Validators.username(v) != null) return;
+    if (v == _initialUsername || v.isEmpty || Validators.username(v) != null) {
+      return;
+    }
 
     setState(() => _checkingUsername = true);
     _usernameDebounce = Timer(const Duration(milliseconds: 500), () async {
@@ -82,79 +84,124 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       appBar: AppBar(title: const Text('Profile')),
       body: profile.when(
         data: (user) {
-          if (user == null) return const Center(child: Text('No profile found.'));
+          if (user == null) {
+            return const Center(child: Text('No profile found.'));
+          }
           _populate(user);
 
           return ListView(
-            padding: const EdgeInsets.all(24),
+            padding: EdgeInsets.zero,
             children: [
-              // Avatar
-              Center(
-                child: AvatarPicker(
-                  imageUrl: user.avatarUrl,
-                  onTap: () => ref
-                      .read(profileControllerProvider.notifier)
-                      .updateAvatar(user.uid),
+              _ProfileHero(
+                user: user,
+                onAvatarTap: () => ref
+                    .read(profileControllerProvider.notifier)
+                    .updateAvatar(user.uid),
+              ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 20, 20, 16),
+                child: Wrap(
+                  spacing: 10,
+                  runSpacing: 10,
+                  children: [
+                    _ProfileStatChip(
+                      icon: Icons.calendar_today_rounded,
+                      label: 'Member since',
+                      value: DateFormatter.memberSince(user.createdAt),
+                    ),
+                    _ProfileStatChip(
+                      icon: Icons.badge_outlined,
+                      label: 'Handle',
+                      value: user.username.isEmpty ? 'Not set' : '@${user.username}',
+                    ),
+                  ],
                 ),
               ),
-              const SizedBox(height: 20),
-              // Display name
-              TextField(
-                controller: _nameController,
-                decoration: const InputDecoration(labelText: 'Display name'),
-              ),
-              const SizedBox(height: 16),
-              // Username
-              TextField(
-                controller: _usernameController,
-                decoration: InputDecoration(
-                  labelText: 'Username',
-                  prefixText: '@',
-                  suffixIcon: _buildUsernameStatus(theme),
-                  helperText: 'Lowercase letters, numbers, _ and . only.',
-                ),
-                onChanged: _onUsernameChanged,
-              ),
-              if (_usernameAvailable == false) ...[
-                const SizedBox(height: 6),
-                Text(
-                  '@${_usernameController.text.trim()} is already taken.',
-                  style: TextStyle(color: theme.colorScheme.error, fontSize: 12),
-                ),
-              ],
-              const SizedBox(height: 16),
-              // Email (read-only)
-              InputDecorator(
-                decoration: const InputDecoration(labelText: 'Email'),
-                child: Text(user.email),
-              ),
-              const SizedBox(height: 16),
-              // Bio
-              TextField(
-                controller: _bioController,
-                minLines: 3,
-                maxLines: 4,
-                decoration: const InputDecoration(labelText: 'Bio'),
-              ),
-              const SizedBox(height: 16),
-              Text(
-                'Member since ${DateFormatter.memberSince(user.createdAt)}',
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
+              _ProfileSection(
+                title: 'Identity',
+                subtitle: 'Keep the basics clear and recognizable.',
+                child: Column(
+                  children: [
+                    TextField(
+                      controller: _nameController,
+                      textCapitalization: TextCapitalization.words,
+                      decoration: const InputDecoration(labelText: 'Display name'),
+                    ),
+                    const SizedBox(height: 16),
+                    TextField(
+                      controller: _usernameController,
+                      autocorrect: false,
+                      enableSuggestions: false,
+                      decoration: InputDecoration(
+                        labelText: 'Username',
+                        prefixText: '@',
+                        suffixIcon: _buildUsernameStatus(theme),
+                        helperText: 'Lowercase letters, numbers, _ and . only.',
+                      ),
+                      onChanged: _onUsernameChanged,
+                    ),
+                    if (_usernameAvailable == false) ...[
+                      const SizedBox(height: 6),
+                      Align(
+                        alignment: Alignment.centerLeft,
+                        child: Text(
+                          '@${_usernameController.text.trim()} is already taken.',
+                          style: TextStyle(
+                            color: theme.colorScheme.error,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ),
+                    ],
+                    const SizedBox(height: 16),
+                    InputDecorator(
+                      decoration: const InputDecoration(labelText: 'Email'),
+                      child: Text(user.email),
+                    ),
+                  ],
                 ),
               ),
-              const SizedBox(height: 20),
-              if (state.hasError) ...[
-                Text(
-                  state.error.toString(),
-                  style: TextStyle(color: theme.colorScheme.error, fontSize: 13),
+              _ProfileSection(
+                title: 'Bio',
+                subtitle: 'Give people a quick sense of who you are.',
+                child: TextField(
+                  controller: _bioController,
+                  minLines: 4,
+                  maxLines: 5,
+                  textCapitalization: TextCapitalization.sentences,
+                  decoration: const InputDecoration(
+                    labelText: 'About you',
+                    hintText: 'Share a short intro, interests, or vibe.',
+                  ),
                 ),
-                const SizedBox(height: 8),
-              ],
-              FilledButton(
-                onPressed:
-                    (state.isLoading || _usernameAvailable == false) ? null : () => _save(user),
-                child: Text(state.isLoading ? 'Saving…' : 'Save profile'),
+              ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 0, 20, 28),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    if (state.hasError) ...[
+                      Text(
+                        state.error.toString(),
+                        style: TextStyle(
+                          color: theme.colorScheme.error,
+                          fontSize: 13,
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                    ],
+                    FilledButton(
+                      onPressed: (state.isLoading || _usernameAvailable == false)
+                          ? null
+                          : () => _save(user),
+                      style: FilledButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                      ),
+                      child:
+                          Text(state.isLoading ? 'Saving...' : 'Save profile'),
+                    ),
+                  ],
+                ),
               ),
             ],
           );
@@ -177,19 +224,26 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       );
     }
     if (_usernameAvailable == true) {
-      return Icon(Icons.check_circle_outline, color: Colors.green.shade600, size: 20);
+      return Icon(
+        Icons.check_circle_outline,
+        color: Colors.green.shade600,
+        size: 20,
+      );
     }
     if (_usernameAvailable == false) {
-      return Icon(Icons.cancel_outlined, color: theme.colorScheme.error, size: 20);
+      return Icon(
+        Icons.cancel_outlined,
+        color: theme.colorScheme.error,
+        size: 20,
+      );
     }
     return null;
   }
 
-  Future<void> _save(user) async {
+  Future<void> _save(UserModel user) async {
     final notifier = ref.read(profileControllerProvider.notifier);
     final newUsername = _usernameController.text.trim().toLowerCase();
 
-    // Update username if changed
     if (newUsername != _initialUsername) {
       final ok = await notifier.updateUsername(
         uid: user.uid,
@@ -200,11 +254,177 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       _initialUsername = newUsername;
     }
 
-    // Update name + bio
     await notifier.updateProfile(
       uid: user.uid,
       name: _nameController.text.trim(),
       bio: _bioController.text.trim(),
+    );
+  }
+}
+
+class _ProfileHero extends StatelessWidget {
+  const _ProfileHero({
+    required this.user,
+    required this.onAvatarTap,
+  });
+
+  final UserModel user;
+  final VoidCallback onAvatarTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Container(
+      padding: const EdgeInsets.fromLTRB(20, 22, 20, 26),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            theme.colorScheme.primary.withValues(alpha: 0.95),
+            theme.colorScheme.tertiary.withValues(alpha: 0.88),
+          ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: const BorderRadius.vertical(
+          bottom: Radius.circular(32),
+        ),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Your profile',
+                  style: theme.textTheme.labelLarge?.copyWith(
+                    color: Colors.white.withValues(alpha: 0.85),
+                    letterSpacing: 0.4,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  user.name,
+                  style: theme.textTheme.headlineMedium?.copyWith(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  user.username.isEmpty ? user.email : '@${user.username}',
+                  style: theme.textTheme.bodyLarge?.copyWith(
+                    color: Colors.white.withValues(alpha: 0.86),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          AvatarPicker(
+            imageUrl: user.avatarUrl,
+            onTap: onAvatarTap,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ProfileSection extends StatelessWidget {
+  const _ProfileSection({
+    required this.title,
+    required this.subtitle,
+    required this.child,
+  });
+
+  final String title;
+  final String subtitle;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
+      child: Container(
+        padding: const EdgeInsets.all(18),
+        decoration: BoxDecoration(
+          color: theme.colorScheme.surfaceContainerHigh,
+          borderRadius: BorderRadius.circular(24),
+          border: Border.all(
+            color: theme.colorScheme.outlineVariant.withValues(alpha: 0.65),
+          ),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              title,
+              style: theme.textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              subtitle,
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.onSurface.withValues(alpha: 0.65),
+              ),
+            ),
+            const SizedBox(height: 16),
+            child,
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ProfileStatChip extends StatelessWidget {
+  const _ProfileStatChip({
+    required this.icon,
+    required this.label,
+    required this.value,
+  });
+
+  final IconData icon;
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surfaceContainerHighest,
+        borderRadius: BorderRadius.circular(18),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 16, color: theme.colorScheme.primary),
+          const SizedBox(width: 8),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                label,
+                style: theme.textTheme.labelSmall?.copyWith(
+                  color: theme.colorScheme.onSurface.withValues(alpha: 0.6),
+                ),
+              ),
+              Text(
+                value,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
     );
   }
 }
