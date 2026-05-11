@@ -50,9 +50,12 @@ class _MessageInputState extends ConsumerState<MessageInput> {
 
   @override
   void dispose() {
+    _typingTimer?.cancel();
+    if (_controller.text.trim().isNotEmpty) {
+      ref.read(chatControllerProvider.notifier).setTyping(widget.room, false);
+    }
     _focusNode.dispose();
     _controller.dispose();
-    _typingTimer?.cancel();
     super.dispose();
   }
 
@@ -69,6 +72,7 @@ class _MessageInputState extends ConsumerState<MessageInput> {
     _typingTimer?.cancel();
     if (notEmpty) {
       _typingTimer = Timer(const Duration(seconds: 3), () {
+        if (!mounted) return;
         ref.read(chatControllerProvider.notifier).setTyping(widget.room, false);
       });
     }
@@ -131,7 +135,8 @@ class _MessageInputState extends ConsumerState<MessageInput> {
                 color: theme.colorScheme.surfaceContainerHigh,
                 borderRadius: BorderRadius.circular(24),
                 border: Border.all(
-                  color: theme.colorScheme.outlineVariant.withValues(alpha: 0.7),
+                  color:
+                      theme.colorScheme.outlineVariant.withValues(alpha: 0.7),
                 ),
                 boxShadow: [
                   BoxShadow(
@@ -245,6 +250,8 @@ class _MessageInputState extends ConsumerState<MessageInput> {
         .read(chatControllerProvider.notifier)
         .sendText(widget.room, text, replyTo: replyTo);
 
+    if (!mounted) return;
+
     if (ok) {
       _controller.clear();
       _updateMentionQuery();
@@ -255,6 +262,7 @@ class _MessageInputState extends ConsumerState<MessageInput> {
   }
 
   void _insertMention(UserModel user) {
+    if (!mounted) return;
     final mention = _activeMention;
     if (mention == null) return;
 
@@ -275,6 +283,7 @@ class _MessageInputState extends ConsumerState<MessageInput> {
   }
 
   void _insertEmoji(String emoji) {
+    if (!mounted) return;
     final selection = _controller.selection;
     final text = _controller.text;
     final start = selection.start >= 0 ? selection.start : text.length;

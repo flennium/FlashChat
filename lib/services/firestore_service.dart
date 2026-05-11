@@ -35,6 +35,7 @@ class FirestoreService {
         .collection(FirebaseConstants.rooms)
         .orderBy('createdAt', descending: true)
         .snapshots()
+        .handleError((_) {})
         .map(
           (s) => s.docs.map((d) => RoomModel.fromMap(d.data(), d.id)).toList(),
         );
@@ -45,6 +46,7 @@ class FirestoreService {
         .collection(FirebaseConstants.rooms)
         .doc(roomId)
         .snapshots()
+        .handleError((_) {})
         .map((doc) {
       if (!doc.exists || doc.data() == null) return null;
       return RoomModel.fromMap(doc.data()!, doc.id);
@@ -56,6 +58,7 @@ class FirestoreService {
         .collection(FirebaseConstants.app)
         .doc(FirebaseConstants.config)
         .snapshots()
+        .handleError((_) {})
         .map((doc) =>
             (doc.data()?['roomAdminEmail'] as String?)?.trim().toLowerCase() ??
             '');
@@ -170,6 +173,7 @@ class FirestoreService {
         .orderBy('timestamp')
         .limitToLast(limit)
         .snapshots()
+        .handleError((_) {})
         .map(
           (s) =>
               s.docs.map((d) => MessageModel.fromMap(d.data(), d.id)).toList(),
@@ -200,27 +204,7 @@ class FirestoreService {
       readBy: [sender.uid],
       replyTo: replyTo,
     );
-    final membersSnap = await _firestore
-        .collection(FirebaseConstants.rooms)
-        .doc(roomId)
-        .collection(FirebaseConstants.members)
-        .get();
-
-    final batch = _firestore.batch();
-    batch.set(doc, message.toMap());
-
-    for (final memberDoc in membersSnap.docs) {
-      if (memberDoc.id == sender.uid) continue;
-      batch.set(
-        memberDoc.reference,
-        {
-          'unreadCount': FieldValue.increment(1),
-        },
-        SetOptions(merge: true),
-      );
-    }
-
-    await batch.commit();
+    await doc.set(message.toMap());
   }
 
   Future<void> editMessage({
@@ -323,6 +307,7 @@ class FirestoreService {
         .collection(FirebaseConstants.members)
         .doc(user.uid)
         .snapshots()
+        .handleError((_) {})
         .map((doc) => (doc.data()?['unreadCount'] as num?)?.toInt() ?? 0);
   }
 
@@ -343,6 +328,7 @@ class FirestoreService {
         .collection(FirebaseConstants.users)
         .doc(uid)
         .snapshots()
+        .handleError((_) {})
         .map((
       doc,
     ) {

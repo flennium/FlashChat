@@ -69,7 +69,8 @@ service cloud.firestore {
             resource.data.senderId == request.auth.uid ||
             request.resource.data.diff(resource.data).affectedKeys().hasOnly([
               'readBy',
-              'reactions'
+              'reactions',
+              'deletedFor'
             ])
           );
         allow delete: if signedIn()

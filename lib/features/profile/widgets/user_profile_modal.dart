@@ -52,7 +52,7 @@ class UserProfileModal extends ConsumerWidget {
                 return const Center(child: Text('User not found'));
               }
 
-              final isOnline = onlineAsync.value ??
+              final isOnline = onlineAsync.valueOrNull ??
                   (user.lastSeen != null &&
                       DateTime.now().difference(user.lastSeen!).inMinutes < 5);
 
@@ -247,8 +247,7 @@ class _ProfileHeader extends StatelessWidget {
                   ),
                   child: CircleAvatar(
                     radius: 42,
-                    backgroundColor:
-                        theme.colorScheme.surfaceContainerHighest,
+                    backgroundColor: theme.colorScheme.surfaceContainerHighest,
                     backgroundImage: user.avatarUrl.isNotEmpty
                         ? NetworkImage(user.avatarUrl)
                         : null,

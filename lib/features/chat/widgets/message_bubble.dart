@@ -11,7 +11,16 @@ import '../../profile/widgets/user_profile_modal.dart';
 import '../controllers/chat_controller.dart';
 
 const _reactionEmojis = [
-  '❤️', '😂', '😮', '😢', '😠', '👍', '👎', '🔥', '🎉', '💯',
+  '❤️',
+  '😂',
+  '😮',
+  '😢',
+  '😠',
+  '👍',
+  '👎',
+  '🔥',
+  '🎉',
+  '💯',
 ];
 
 // URL pattern — styled as links (add url_launcher to pubspec to make tappable)
@@ -28,22 +37,22 @@ BorderRadius _bubbleRadius({
   required bool isLast,
 }) {
   const double r = 18; // full round
-  const double s = 4;  // small connector
+  const double s = 4; // small connector
 
   if (isFirst && isLast) return BorderRadius.circular(r);
 
   if (isMe) {
     return BorderRadius.only(
-      topLeft:     const Radius.circular(r),
-      topRight:    Radius.circular(isFirst ? r : s),
-      bottomLeft:  const Radius.circular(r),
-      bottomRight: Radius.circular(isLast  ? r : s),
+      topLeft: const Radius.circular(r),
+      topRight: Radius.circular(isFirst ? r : s),
+      bottomLeft: const Radius.circular(r),
+      bottomRight: Radius.circular(isLast ? r : s),
     );
   } else {
     return BorderRadius.only(
-      topLeft:     Radius.circular(isFirst ? r : s),
-      topRight:    const Radius.circular(r),
-      bottomLeft:  Radius.circular(isLast  ? r : s),
+      topLeft: Radius.circular(isFirst ? r : s),
+      topRight: const Radius.circular(r),
+      bottomLeft: Radius.circular(isLast ? r : s),
       bottomRight: const Radius.circular(r),
     );
   }
@@ -76,15 +85,15 @@ class MessageBubble extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
-    final currentUid = ref.watch(currentUserProfileProvider).value?.uid ?? '';
+    final currentUid =
+        ref.watch(currentUserProfileProvider).valueOrNull?.uid ?? '';
     final isDeletedForMe = message.deletedFor.contains(currentUid);
     final isEffectivelyDeleted = message.isDeleted || isDeletedForMe;
 
     // 2 px inside a group, 3 px for image messages inside a group,
     // 10 px after the last message of a group.
-    final bottomPadding = isLastInGroup
-        ? 10.0
-        : (message.imageUrl.isNotEmpty ? 3.0 : 2.0);
+    final bottomPadding =
+        isLastInGroup ? 10.0 : (message.imageUrl.isNotEmpty ? 3.0 : 2.0);
 
     return Padding(
       padding: EdgeInsets.only(bottom: bottomPadding),
@@ -121,9 +130,8 @@ class MessageBubble extends ConsumerWidget {
             // ── Main content column ─────────────────────────────────────────
             Expanded(
               child: Column(
-                crossAxisAlignment: isMe
-                    ? CrossAxisAlignment.end
-                    : CrossAxisAlignment.start,
+                crossAxisAlignment:
+                    isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   // Display name — received messages, first of group only
@@ -153,7 +161,9 @@ class MessageBubble extends ConsumerWidget {
                   ),
 
                   // "edited" for mid-group messages (footer only renders on last)
-                  if (!isLastInGroup && message.isEdited && !isEffectivelyDeleted)
+                  if (!isLastInGroup &&
+                      message.isEdited &&
+                      !isEffectivelyDeleted)
                     Padding(
                       padding: EdgeInsets.only(
                         top: 2,
@@ -163,7 +173,8 @@ class MessageBubble extends ConsumerWidget {
                       child: Text(
                         'edited',
                         style: theme.textTheme.bodySmall?.copyWith(
-                          color: theme.colorScheme.onSurface.withValues(alpha: 0.35),
+                          color: theme.colorScheme.onSurface
+                              .withValues(alpha: 0.35),
                           fontSize: 10,
                           fontStyle: FontStyle.italic,
                         ),
@@ -306,7 +317,11 @@ class _FrozenAvatarState extends State<_FrozenAvatar> {
   void _resolveImage() {
     if (widget.avatarUrl == _resolvedUrl) return;
     _resolvedUrl = widget.avatarUrl;
-    if (_listener != null) _stream?.removeListener(_listener!);
+    if (_listener != null) {
+      try {
+        _stream?.removeListener(_listener!);
+      } catch (_) {}
+    }
     _imageInfo = null;
     final provider = NetworkImage(widget.avatarUrl);
     _listener = ImageStreamListener(_onFirstFrame);
@@ -319,12 +334,18 @@ class _FrozenAvatarState extends State<_FrozenAvatar> {
     if (!mounted) return;
     setState(() => _imageInfo = info);
     // Remove listener after first frame to freeze GIF avatars
-    _stream?.removeListener(_listener!);
+    try {
+      _stream?.removeListener(_listener!);
+    } catch (_) {}
   }
 
   @override
   void dispose() {
-    if (_listener != null) _stream?.removeListener(_listener!);
+    if (_listener != null) {
+      try {
+        _stream?.removeListener(_listener!);
+      } catch (_) {}
+    }
     super.dispose();
   }
 
@@ -423,7 +444,8 @@ class _Bubble extends StatelessWidget {
                     Icon(
                       Icons.block_rounded,
                       size: 13,
-                      color: theme.colorScheme.onSurface.withValues(alpha: 0.35),
+                      color:
+                          theme.colorScheme.onSurface.withValues(alpha: 0.35),
                     ),
                     const SizedBox(width: 6),
                     Text(
@@ -486,8 +508,8 @@ class _Bubble extends StatelessWidget {
                                   if (progress == null) return child;
                                   return Container(
                                     height: 180,
-                                    color: theme.colorScheme
-                                        .surfaceContainerHighest,
+                                    color: theme
+                                        .colorScheme.surfaceContainerHighest,
                                     alignment: Alignment.center,
                                     child: const CircularProgressIndicator(
                                         strokeWidth: 2),
@@ -542,8 +564,7 @@ class _ReplyQuote extends StatelessWidget {
   Widget build(BuildContext context) {
     final senderUsername = replyTo['senderUsername'] as String? ?? '';
     final senderName = replyTo['senderName'] as String? ?? '';
-    final displayName =
-        senderName.isNotEmpty ? senderName : '@$senderUsername';
+    final displayName = senderName.isNotEmpty ? senderName : '@$senderUsername';
     final text = replyTo['text'] as String? ?? '';
     final imageUrl = replyTo['imageUrl'] as String? ?? '';
     final hasImage = imageUrl.isNotEmpty;
@@ -551,12 +572,10 @@ class _ReplyQuote extends StatelessWidget {
     final quoteColor = isMe
         ? Colors.white.withValues(alpha: 0.15)
         : theme.colorScheme.onSurface.withValues(alpha: 0.06);
-    final accentColor = isMe
-        ? Colors.white.withValues(alpha: 0.7)
-        : theme.colorScheme.primary;
-    final nameColor = isMe
-        ? Colors.white.withValues(alpha: 0.85)
-        : theme.colorScheme.primary;
+    final accentColor =
+        isMe ? Colors.white.withValues(alpha: 0.7) : theme.colorScheme.primary;
+    final nameColor =
+        isMe ? Colors.white.withValues(alpha: 0.85) : theme.colorScheme.primary;
     final textColor = isMe
         ? Colors.white.withValues(alpha: 0.65)
         : theme.colorScheme.onSurface.withValues(alpha: 0.6);
@@ -794,7 +813,9 @@ class _RichTextState extends ConsumerState<_RichText> {
 
   @override
   void dispose() {
-    for (final r in _recognizers) { r.dispose(); }
+    for (final r in _recognizers) {
+      r.dispose();
+    }
     super.dispose();
   }
 
@@ -807,8 +828,7 @@ class _RichTextState extends ConsumerState<_RichText> {
     for (final m in _urlRegex.allMatches(text)) {
       final url = m.group(0)!;
       // Skip if this range overlaps an already-found mention
-      final overlaps =
-          segs.any((s) => s.start < m.end && s.end > m.start);
+      final overlaps = segs.any((s) => s.start < m.end && s.end > m.start);
       if (!overlaps) {
         segs.add(_Seg(m.start, m.end, _SegType.url, url));
       }
@@ -820,7 +840,9 @@ class _RichTextState extends ConsumerState<_RichText> {
 
   @override
   Widget build(BuildContext context) {
-    for (final r in _recognizers) { r.dispose(); }
+    for (final r in _recognizers) {
+      r.dispose();
+    }
     _recognizers.clear();
 
     final segs = _parseSegments(widget.text);
@@ -1014,6 +1036,7 @@ class _ContextMenu extends ConsumerWidget {
   }
 
   void _showEditDialog() {
+    if (!outerContext.mounted) return;
     final ctrl = TextEditingController(text: message.text);
     showDialog(
       context: outerContext,
@@ -1028,7 +1051,10 @@ class _ContextMenu extends ConsumerWidget {
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(ctx),
+            onPressed: () {
+              ctrl.dispose();
+              Navigator.pop(ctx);
+            },
             child: const Text('Cancel'),
           ),
           FilledButton(
@@ -1037,6 +1063,7 @@ class _ContextMenu extends ConsumerWidget {
               if (newText.isNotEmpty && newText != message.text) {
                 onEdit(newText);
               }
+              ctrl.dispose();
               Navigator.pop(ctx);
             },
             child: const Text('Save'),
@@ -1066,8 +1093,7 @@ class _MenuItem extends StatelessWidget {
     final c = color ?? theme.colorScheme.onSurface;
     return ListTile(
       leading: Icon(icon, color: c, size: 22),
-      title:
-          Text(label, style: theme.textTheme.bodyMedium?.copyWith(color: c)),
+      title: Text(label, style: theme.textTheme.bodyMedium?.copyWith(color: c)),
       onTap: onTap,
       dense: true,
       visualDensity: VisualDensity.compact,

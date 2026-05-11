@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/providers/app_providers.dart';
@@ -29,6 +29,7 @@ class ChatScreen extends ConsumerStatefulWidget {
 }
 
 class _ChatScreenState extends ConsumerState<ChatScreen> {
+  late final StateController<String?> _activeRoomIdController;
   // ── Scroll ──────────────────────────────────────────────────────────────
   final _scrollController = ScrollController();
   bool _showScrollToBottom = false;
@@ -66,7 +67,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   @override
   void initState() {
     super.initState();
-    ref.read(activeRoomIdProvider.notifier).state = widget.room.id;
+    _activeRoomIdController = ref.read(activeRoomIdProvider.notifier);
+    _activeRoomIdController.state = widget.room.id;
     _scrollController.addListener(_onScroll);
   }
 
@@ -74,15 +76,14 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   void didUpdateWidget(covariant ChatScreen oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.room.id != widget.room.id) {
-      ref.read(activeRoomIdProvider.notifier).state = widget.room.id;
+      _activeRoomIdController.state = widget.room.id;
     }
   }
 
   @override
   void dispose() {
-    final activeRoomId = ref.read(activeRoomIdProvider);
-    if (activeRoomId == widget.room.id) {
-      ref.read(activeRoomIdProvider.notifier).state = null;
+    if (_activeRoomIdController.state == widget.room.id) {
+      _activeRoomIdController.state = null;
     }
     _scrollController.dispose();
     super.dispose();
@@ -283,8 +284,8 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
       _needsPositionRestore = false;
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted || !_scrollController.hasClients) return;
-        final delta = _scrollController.position.maxScrollExtent -
-            _restoreBaseMaxExtent;
+        final delta =
+            _scrollController.position.maxScrollExtent - _restoreBaseMaxExtent;
         if (delta > 0 && _restoreBasePixels > 0) {
           _scrollController.jumpTo(
             (_restoreBasePixels + delta).clamp(
@@ -308,8 +309,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
           child: ListView.builder(
             reverse: true,
             controller: _scrollController,
-            padding:
-                const EdgeInsets.symmetric(horizontal: 12, vertical: 16),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 16),
             itemCount: items.length + (_isLoadingMore ? 1 : 0),
             itemBuilder: (_, index) {
               // Loading spinner at the top (highest index in a reverse list).
@@ -363,20 +363,20 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     final roomAsync = supportsDesktopLiveSignals
         ? ref.watch(roomByIdProvider(widget.room.id))
         : const AsyncValue<RoomModel?>.data(null);
-    final room = roomAsync.value ?? widget.room;
+    final room = roomAsync.valueOrNull ?? widget.room;
     final messagesAsync = ref.watch(roomMessagesProvider(widget.room.id));
     final onlineCount = supportsDesktopLiveSignals
-        ? ref.watch(onlineCountProvider).value ?? 0
+        ? ref.watch(onlineCountProvider).valueOrNull ?? 0
         : 0;
     final announcement = supportsDesktopLiveSignals
-        ? ref.watch(announcementProvider).value ?? ''
+        ? ref.watch(announcementProvider).valueOrNull ?? ''
         : '';
     final typingUsers = supportsDesktopLiveSignals
-        ? ref.watch(typingUsersProvider(widget.room.id)).value ?? []
+        ? ref.watch(typingUsersProvider(widget.room.id)).valueOrNull ?? []
         : const <String>[];
-    final currentUid = ref.watch(currentUserProfileProvider).value?.uid ?? '';
-    final currentProfile = ref.watch(currentUserProfileProvider).value;
-    final roomAdminEmail = ref.watch(roomAdminEmailProvider).value ?? '';
+    final currentProfile = ref.watch(currentUserProfileProvider).valueOrNull;
+    final currentUid = currentProfile?.uid ?? '';
+    final roomAdminEmail = ref.watch(roomAdminEmailProvider).valueOrNull ?? '';
     final canManageRoom = currentProfile != null &&
         (currentProfile.uid == room.createdBy ||
             (roomAdminEmail.isNotEmpty &&
@@ -582,8 +582,18 @@ class _DateSeparator extends StatelessWidget {
 
   static const _months = [
     '',
-    'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-    'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+    'Jan',
+    'Feb',
+    'Mar',
+    'Apr',
+    'May',
+    'Jun',
+    'Jul',
+    'Aug',
+    'Sep',
+    'Oct',
+    'Nov',
+    'Dec',
   ];
 
   String _monthName(int m) => _months[m];

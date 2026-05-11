@@ -50,6 +50,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
 
     setState(() => _checkingUsername = true);
     _usernameDebounce = Timer(const Duration(milliseconds: 500), () async {
+      if (!mounted) return;
       final available =
           await ref.read(firestoreServiceProvider).isUsernameAvailable(v);
       if (mounted) {
@@ -129,7 +130,8 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
           ],
           const SizedBox(height: 20),
           FilledButton(
-            onPressed: isLoading || _usernameAvailable == false ? null : _submit,
+            onPressed:
+                isLoading || _usernameAvailable == false ? null : _submit,
             child: Text(isLoading ? 'Creating account…' : 'Register'),
           ),
           const SizedBox(height: 16),
@@ -182,10 +184,12 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
       );
     }
     if (_usernameAvailable == true) {
-      return Icon(Icons.check_circle_outline, color: Colors.green.shade600, size: 20);
+      return Icon(Icons.check_circle_outline,
+          color: Colors.green.shade600, size: 20);
     }
     if (_usernameAvailable == false) {
-      return Icon(Icons.cancel_outlined, color: theme.colorScheme.error, size: 20);
+      return Icon(Icons.cancel_outlined,
+          color: theme.colorScheme.error, size: 20);
     }
     return null;
   }
@@ -193,13 +197,15 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
     final preferred = _usernameController.text.trim().toLowerCase();
-    final ok = await ref.read(authControllerProvider.notifier).registerWithEmail(
-          name: _nameController.text.trim(),
-          email: _emailController.text.trim(),
-          password: _passwordController.text.trim(),
-          preferredUsername: preferred.isEmpty ? null : preferred,
-        );
-    if (ok && mounted) {
+    final ok =
+        await ref.read(authControllerProvider.notifier).registerWithEmail(
+              name: _nameController.text.trim(),
+              email: _emailController.text.trim(),
+              password: _passwordController.text.trim(),
+              preferredUsername: preferred.isEmpty ? null : preferred,
+            );
+    if (!mounted) return;
+    if (ok) {
       Navigator.of(context).pushAndRemoveUntil(
         MaterialPageRoute<void>(builder: (_) => const HomeShell()),
         (route) => false,

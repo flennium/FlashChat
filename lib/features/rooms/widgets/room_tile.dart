@@ -14,10 +14,13 @@ class RoomTile extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final unreadAsync = ref.watch(roomUnreadCountProvider(room.id));
+    final currentProfileAsync = ref.watch(currentUserProfileProvider);
+    final adminEmailAsync = ref.watch(roomAdminEmailProvider);
     final isLoading = ref.watch(roomControllerProvider).isLoading;
-    final unreadCount = ref.watch(roomUnreadCountProvider(room.id)).value ?? 0;
-    final currentProfile = ref.watch(currentUserProfileProvider).value;
-    final adminEmail = ref.watch(roomAdminEmailProvider).value ?? '';
+    final unreadCount = unreadAsync.valueOrNull ?? 0;
+    final currentProfile = currentProfileAsync.valueOrNull;
+    final adminEmail = adminEmailAsync.valueOrNull ?? '';
     final canManage = currentProfile != null &&
         (currentProfile.uid == room.createdBy ||
             (adminEmail.isNotEmpty &&

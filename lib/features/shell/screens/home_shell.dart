@@ -36,7 +36,8 @@ class _HomeShellState extends ConsumerState<HomeShell> {
     super.initState();
     Future.microtask(_initPresence);
     if (PlatformSupport.supportsPushNotifications) {
-      _fcmSubscription = FirebaseMessaging.onMessage.listen(_onForegroundMessage);
+      _fcmSubscription =
+          FirebaseMessaging.onMessage.listen(_onForegroundMessage);
     }
     _authSubscription = ref.listenManual<AsyncValue<User?>>(
       authStateProvider,
@@ -61,7 +62,7 @@ class _HomeShellState extends ConsumerState<HomeShell> {
       await ref.read(presenceServiceProvider).setOnline(username: username);
     }
 
-    final authUser = ref.read(authStateProvider).value;
+    final authUser = ref.read(authStateProvider).valueOrNull;
     final token = PlatformSupport.supportsPushNotifications
         ? await ref.read(fcmServiceProvider).initAndGetToken()
         : null;
@@ -240,7 +241,8 @@ class _NotifBannerState extends State<_NotifBanner>
                       ),
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.black.withValues(alpha: isDark ? 0.45 : 0.18),
+                          color: Colors.black
+                              .withValues(alpha: isDark ? 0.45 : 0.18),
                           blurRadius: 28,
                           spreadRadius: -4,
                           offset: const Offset(0, 8),
@@ -285,8 +287,8 @@ class _NotifBannerState extends State<_NotifBanner>
                                   Expanded(
                                     child: Text(
                                       widget.title,
-                                      style: theme.textTheme.bodyMedium
-                                          ?.copyWith(
+                                      style:
+                                          theme.textTheme.bodyMedium?.copyWith(
                                         fontWeight: FontWeight.w700,
                                         color: isDark
                                             ? Colors.white
@@ -304,7 +306,8 @@ class _NotifBannerState extends State<_NotifBanner>
                                       fontSize: 11,
                                       color: isDark
                                           ? Colors.white.withValues(alpha: 0.35)
-                                          : Colors.black.withValues(alpha: 0.35),
+                                          : Colors.black
+                                              .withValues(alpha: 0.35),
                                     ),
                                   ),
                                 ],

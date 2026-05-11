@@ -1,6 +1,7 @@
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:flutter/foundation.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../core/constants/app_env.dart';
@@ -12,6 +13,7 @@ class AppBootstrap {
 
   static Future<void> initialize() async {
     try {
+      GoogleFonts.config.allowRuntimeFetching = false;
       await Firebase.initializeApp(options: FirebasePlatformOptions.current);
       if (AppEnv.hasSupabaseStorageConfig) {
         await Supabase.initialize(

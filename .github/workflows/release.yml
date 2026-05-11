@@ -4,6 +4,7 @@ on:
   push:
     tags:
       - "v*"
+  workflow_dispatch:
 
 permissions:
   contents: write
@@ -49,13 +50,20 @@ jobs:
       - name: Install dependencies
         run: flutter pub get
 
+      - name: Restore Android keystore
+        if: ${{ secrets.ANDROID_KEYSTORE_BASE64 != '' }}
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+        run: |
+          echo "$ANDROID_KEYSTORE_BASE64" | base64 --decode > android/app/release-keystore.jks
+
       - name: Read and validate version
         id: app_version
         run: |
           VERSION=$(grep '^version:' pubspec.yaml | awk '{print $2}')
           VERSION_NAME=${VERSION%%+*}
-          TAG_NAME="${GITHUB_REF_NAME}"
-          if [ "v$VERSION_NAME" != "$TAG_NAME" ]; then
+          TAG_NAME="${GITHUB_REF_NAME:-v$VERSION_NAME}"
+          if [ -n "$GITHUB_REF_NAME" ] && [ "v$VERSION_NAME" != "$TAG_NAME" ]; then
             echo "Tag $TAG_NAME does not match pubspec version v$VERSION_NAME"
             exit 1
           fi
@@ -63,6 +71,11 @@ jobs:
           echo "tag_name=$TAG_NAME" >> "$GITHUB_OUTPUT"
 
       - name: Build Android release APK
+        env:
+          ANDROID_KEYSTORE_PATH: android/app/release-keystore.jks
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
         run: >
           flutter build apk --release
           --dart-define=SUPABASE_URL=${{ secrets.SUPABASE_URL }}
@@ -119,8 +132,8 @@ jobs:
           $versionLine = Select-String -Path pubspec.yaml -Pattern '^version:'
           $version = ($versionLine.Line -split '\s+')[1]
           $versionName = $version.Split('+')[0]
-          $tagName = $env:GITHUB_REF_NAME
-          if ("v$versionName" -ne $tagName) {
+          $tagName = if ($env:GITHUB_REF_NAME) { $env:GITHUB_REF_NAME } else { "v$versionName" }
+          if ($env:GITHUB_REF_NAME -and ("v$versionName" -ne $tagName)) {
             Write-Error "Tag $tagName does not match pubspec version v$versionName"
             exit 1
           }

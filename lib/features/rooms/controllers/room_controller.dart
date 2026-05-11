@@ -6,7 +6,7 @@ import '../../../core/providers/app_providers.dart';
 import '../../../models/room_model.dart';
 
 final roomListProvider = StreamProvider<List<RoomModel>>((ref) {
-  final authUser = ref.watch(authStateProvider).value;
+  final authUser = ref.watch(authStateProvider).valueOrNull;
   if (authUser == null) {
     return const Stream<List<RoomModel>>.empty();
   }
@@ -15,7 +15,7 @@ final roomListProvider = StreamProvider<List<RoomModel>>((ref) {
 
 final roomByIdProvider =
     StreamProvider.autoDispose.family<RoomModel?, String>((ref, roomId) {
-  final authUser = ref.watch(authStateProvider).value;
+  final authUser = ref.watch(authStateProvider).valueOrNull;
   if (authUser == null) {
     return const Stream<RoomModel?>.empty();
   }

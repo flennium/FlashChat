@@ -90,7 +90,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   Widget build(BuildContext context) {
     final themeMode = ref.watch(themeModeControllerProvider);
     final activeVariant = ref.watch(themeVariantControllerProvider);
-    final profile = ref.watch(currentUserProfileProvider).value;
+    final profile = ref.watch(currentUserProfileProvider).valueOrNull;
     final theme = Theme.of(context);
     const titleColor = Colors.white;
     final mutedTitleColor = Colors.white.withValues(alpha: 0.78);
@@ -872,12 +872,12 @@ class _CelebrationScreenState extends State<_CelebrationScreen>
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
                 colors: [
-                  Color.lerp(
-                      const Color.fromARGB(255, 71, 237, 226), const Color.fromARGB(255, 183, 242, 155), g)!,
-                  Color.lerp(
-                      const Color.fromARGB(255, 4, 135, 116), const Color.fromARGB(255, 153, 233, 144), g)!,
-                  Color.lerp(
-                      const Color.fromARGB(255, 2, 82, 84), const Color.fromARGB(255, 2, 124, 71), g)!,
+                  Color.lerp(const Color.fromARGB(255, 71, 237, 226),
+                      const Color.fromARGB(255, 183, 242, 155), g)!,
+                  Color.lerp(const Color.fromARGB(255, 4, 135, 116),
+                      const Color.fromARGB(255, 153, 233, 144), g)!,
+                  Color.lerp(const Color.fromARGB(255, 2, 82, 84),
+                      const Color.fromARGB(255, 2, 124, 71), g)!,
                 ],
               ),
             ),

@@ -26,7 +26,7 @@ final authStateProvider = StreamProvider<User?>((ref) {
 });
 
 final currentUserProfileProvider = StreamProvider<UserModel?>((ref) {
-  final authUser = ref.watch(authStateProvider).value;
+  final authUser = ref.watch(authStateProvider).valueOrNull;
   if (authUser == null) return const Stream<UserModel?>.empty();
   return ref.watch(firestoreServiceProvider).watchUserProfile(authUser.uid);
 });
@@ -46,7 +46,7 @@ final onlineCountProvider = StreamProvider<int>((ref) {
 });
 
 final roomAdminEmailProvider = StreamProvider<String>((ref) {
-  final authUser = ref.watch(authStateProvider).value;
+  final authUser = ref.watch(authStateProvider).valueOrNull;
   if (authUser == null) return Stream<String>.value('');
   return ref.watch(firestoreServiceProvider).watchRoomAdminEmail();
 });
