@@ -10,6 +10,8 @@ on:
 jobs:
   analyze-and-test:
     runs-on: ubuntu-latest
+    env:
+      HAS_ANDROID_KEYSTORE: ${{ secrets.ANDROID_KEYSTORE_BASE64 != '' }}
 
     steps:
       - name: Check out repository
@@ -49,7 +51,7 @@ jobs:
         run: flutter pub get
 
       - name: Restore Android keystore
-        if: ${{ secrets.ANDROID_KEYSTORE_BASE64 != '' }}
+        if: env.HAS_ANDROID_KEYSTORE == 'true'
         env:
           ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
         run: |
@@ -71,6 +73,8 @@ jobs:
   build-android:
     needs: analyze-and-test
     runs-on: ubuntu-latest
+    env:
+      HAS_ANDROID_KEYSTORE: ${{ secrets.ANDROID_KEYSTORE_BASE64 != '' }}
 
     steps:
       - name: Check out repository
@@ -108,6 +112,13 @@ jobs:
 
       - name: Install dependencies
         run: flutter pub get
+
+      - name: Restore Android keystore
+        if: env.HAS_ANDROID_KEYSTORE == 'true'
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+        run: |
+          echo "$ANDROID_KEYSTORE_BASE64" | base64 --decode > android/app/release-keystore.jks
 
       - name: Read application version
         id: app_version
