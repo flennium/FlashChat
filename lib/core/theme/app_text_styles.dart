@@ -9,8 +9,22 @@ class AppTextStyles {
     Color secondary, {
     TextTheme? base,
   }) {
-    final b = base ?? GoogleFonts.interTextTheme();
+    final b = (base ?? GoogleFonts.interTextTheme()).apply(
+      bodyColor: primary,
+      displayColor: primary,
+      decorationColor: primary,
+    );
+
     return b.copyWith(
+      displayLarge: b.displayLarge?.copyWith(
+        color: primary,
+      ),
+      displayMedium: b.displayMedium?.copyWith(
+        color: primary,
+      ),
+      displaySmall: b.displaySmall?.copyWith(
+        color: primary,
+      ),
       headlineLarge: b.headlineLarge?.copyWith(
         fontSize: 32,
         fontWeight: FontWeight.w800,
@@ -26,6 +40,14 @@ class AppTextStyles {
         fontWeight: FontWeight.w700,
         color: primary,
       ),
+      titleMedium: b.titleMedium?.copyWith(
+        fontWeight: FontWeight.w600,
+        color: primary,
+      ),
+      titleSmall: b.titleSmall?.copyWith(
+        fontWeight: FontWeight.w600,
+        color: primary,
+      ),
       bodyLarge: b.bodyLarge?.copyWith(
         fontSize: 16,
         fontWeight: FontWeight.w400,
@@ -39,6 +61,12 @@ class AppTextStyles {
       bodySmall: b.bodySmall?.copyWith(
         fontSize: 12,
         fontWeight: FontWeight.w400,
+        color: secondary,
+      ),
+      labelMedium: b.labelMedium?.copyWith(
+        color: secondary,
+      ),
+      labelSmall: b.labelSmall?.copyWith(
         color: secondary,
       ),
       labelLarge: b.labelLarge?.copyWith(

@@ -20,23 +20,31 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
   @override
   void initState() {
     super.initState();
+    Future.microtask(() => _handleAuthState(ref.read(authStateProvider)));
     _authSubscription = ref.listenManual<AsyncValue<User?>>(
       authStateProvider,
       (_, next) {
-        next.whenData((user) async {
-          if (_hasNavigated) return;
-          await Future<void>.delayed(const Duration(milliseconds: 1200));
-          if (!mounted || _hasNavigated) return;
-
-          _hasNavigated = true;
-          final route = MaterialPageRoute<void>(
-            builder: (_) =>
-                user == null ? const LoginScreen() : const HomeShell(),
-          );
-          Navigator.of(context).pushAndRemoveUntil(route, (route) => false);
-        });
+        _handleAuthState(next);
       },
     );
+  }
+
+  Future<void> _handleAuthState(AsyncValue<User?> state) async {
+    final user = state.valueOrNull;
+    if (state.isLoading || _hasNavigated) {
+      return;
+    }
+
+    await Future<void>.delayed(const Duration(milliseconds: 1200));
+    if (!mounted || _hasNavigated) {
+      return;
+    }
+
+    _hasNavigated = true;
+    final route = MaterialPageRoute<void>(
+      builder: (_) => user == null ? const LoginScreen() : const HomeShell(),
+    );
+    Navigator.of(context).pushAndRemoveUntil(route, (route) => false);
   }
 
   @override

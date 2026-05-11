@@ -3,6 +3,7 @@ import 'package:image_picker/image_picker.dart';
 
 import '../../../core/constants/app_env.dart';
 import '../../../core/providers/app_providers.dart';
+import '../../../core/utils/input_sanitizer.dart';
 
 final profileControllerProvider =
     StateNotifierProvider<ProfileController, AsyncValue<void>>((ref) {
@@ -39,8 +40,9 @@ class ProfileController extends StateNotifier<AsyncValue<void>> {
   }) async {
     state = const AsyncValue.loading();
     state = await AsyncValue.guard(() async {
-      final lc = newUsername.toLowerCase();
-      if (lc != oldUsername.toLowerCase()) {
+      final lc = InputSanitizer.normalizeUsername(newUsername);
+      final previous = InputSanitizer.normalizeUsername(oldUsername);
+      if (lc != previous) {
         final available =
             await ref.read(firestoreServiceProvider).isUsernameAvailable(lc);
         if (!available) throw Exception('@$lc is already taken');
@@ -48,13 +50,11 @@ class ProfileController extends StateNotifier<AsyncValue<void>> {
       await ref.read(firestoreServiceProvider).claimUsername(
             uid: uid,
             username: lc,
-            oldUsername: oldUsername.isEmpty ? null : oldUsername,
+            oldUsername: previous.isEmpty ? null : previous,
           );
       // Also push the updated username into the RTDB presence node so typing
       // indicators reflect the change immediately.
-      await ref
-          .read(presenceServiceProvider)
-          .updatePresenceUsername(lc);
+      await ref.read(presenceServiceProvider).updatePresenceUsername(lc);
     });
     return !state.hasError;
   }
@@ -62,11 +62,12 @@ class ProfileController extends StateNotifier<AsyncValue<void>> {
   Future<bool> updateAvatar(String uid) async {
     state = const AsyncValue.loading();
     state = await AsyncValue.guard(() async {
-      final imageUrl = await ref.read(storageServiceProvider).pickAndUploadImage(
-            path: uid,
-            bucket: AppEnv.supabaseAvatarBucket,
-            source: ImageSource.gallery,
-          );
+      final imageUrl =
+          await ref.read(storageServiceProvider).pickAndUploadImage(
+                path: uid,
+                bucket: AppEnv.supabaseAvatarBucket,
+                source: ImageSource.gallery,
+              );
       if (imageUrl != null) {
         await ref
             .read(firestoreServiceProvider)

@@ -3,6 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:uuid/uuid.dart';
 
 import '../core/constants/firebase_constants.dart';
+import '../core/utils/input_sanitizer.dart';
 import '../models/message_model.dart';
 import '../models/room_model.dart';
 import '../models/user_model.dart';
@@ -74,15 +75,20 @@ class FirestoreService {
     final user = _auth.currentUser!;
     final ownerProfile = await fetchCurrentUserProfile();
     final doc = _firestore.collection(FirebaseConstants.rooms).doc(_uuid.v4());
+    final normalizedName = InputSanitizer.normalizeRoomName(name);
+    final normalizedDescription =
+        InputSanitizer.normalizeRoomDescription(description);
+    final normalizedAccessCode = InputSanitizer.normalizeAccessCode(accessCode);
     final room = RoomModel(
       id: doc.id,
-      name: name,
-      description: description,
+      name: normalizedName,
+      description: normalizedDescription,
       createdBy: user.uid,
-      createdByName: ownerProfile?.name ?? user.displayName ?? '',
+      createdByName: ownerProfile?.displayName ??
+          InputSanitizer.normalizeDisplayName(user.displayName ?? ''),
       createdByUsername: ownerProfile?.username ?? '',
       isPrivate: isPrivate,
-      accessCode: accessCode,
+      accessCode: normalizedAccessCode,
       avatarUrl: avatarUrl,
       createdAt: DateTime.now(),
       memberCount: 1,
@@ -103,11 +109,15 @@ class FirestoreService {
     String accessCode = '',
     String? avatarUrl,
   }) {
+    final normalizedName = InputSanitizer.normalizeRoomName(name);
+    final normalizedDescription =
+        InputSanitizer.normalizeRoomDescription(description);
+    final normalizedAccessCode = InputSanitizer.normalizeAccessCode(accessCode);
     return _firestore.collection(FirebaseConstants.rooms).doc(room.id).update({
-      'name': name,
-      'description': description,
+      'name': normalizedName,
+      'description': normalizedDescription,
       'isPrivate': isPrivate,
-      'accessCode': isPrivate ? accessCode : '',
+      'accessCode': isPrivate ? normalizedAccessCode : '',
       if (avatarUrl != null) 'avatarUrl': avatarUrl,
     });
   }
@@ -139,7 +149,9 @@ class FirestoreService {
     final isMember = await isCurrentUserRoomMember(room.id);
     if (isMember) return true;
 
-    if (room.isPrivate && room.accessCode.trim() != accessCode.trim()) {
+    if (room.isPrivate &&
+        InputSanitizer.normalizeAccessCode(room.accessCode) !=
+            InputSanitizer.normalizeAccessCode(accessCode)) {
       return false;
     }
 
@@ -346,9 +358,12 @@ class FirestoreService {
     String? theme,
     bool? notificationsEnabled,
   }) {
+    final normalizedName =
+        name == null ? null : InputSanitizer.normalizeDisplayName(name);
+    final normalizedBio = bio == null ? null : InputSanitizer.normalizeBio(bio);
     return _firestore.collection(FirebaseConstants.users).doc(uid).update({
-      if (name != null) 'name': name,
-      if (bio != null) 'bio': bio,
+      if (normalizedName != null) 'name': normalizedName,
+      if (normalizedBio != null) 'bio': normalizedBio,
       if (avatarUrl != null) 'avatarUrl': avatarUrl,
       if (fcmToken != null) 'fcmToken': fcmToken,
       if (theme != null) 'theme': theme,
@@ -364,7 +379,7 @@ class FirestoreService {
   Future<String?> getUidByUsername(String username) async {
     final doc = await _firestore
         .collection(FirebaseConstants.usernames)
-        .doc(username.toLowerCase())
+        .doc(InputSanitizer.normalizeUsername(username))
         .get();
     return doc.data()?['uid'] as String?;
   }
@@ -373,7 +388,7 @@ class FirestoreService {
   Future<bool> isUsernameAvailable(String username) async {
     final doc = await _firestore
         .collection(FirebaseConstants.usernames)
-        .doc(username.toLowerCase())
+        .doc(InputSanitizer.normalizeUsername(username))
         .get();
     return !doc.exists;
   }
@@ -385,7 +400,7 @@ class FirestoreService {
     String? oldUsername,
   }) async {
     final batch = _firestore.batch();
-    final lc = username.toLowerCase();
+    final lc = InputSanitizer.normalizeUsername(username);
     batch.set(_firestore.collection(FirebaseConstants.usernames).doc(lc), {
       'uid': uid,
     });

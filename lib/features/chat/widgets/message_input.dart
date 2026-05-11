@@ -10,6 +10,7 @@ import '../../../models/room_model.dart';
 import '../../../models/user_model.dart';
 import '../controllers/chat_controller.dart';
 
+// ignore: unused_element
 const _quickEmojis = [
   '😀',
   '😂',
@@ -39,7 +40,6 @@ class _MessageInputState extends ConsumerState<MessageInput> {
   final _focusNode = FocusNode();
   Timer? _typingTimer;
   ActiveMentionQuery? _activeMention;
-  bool _showEmojiTray = false;
 
   @override
   void initState() {
@@ -60,9 +60,6 @@ class _MessageInputState extends ConsumerState<MessageInput> {
   }
 
   void _handleFocusChange() {
-    if (_focusNode.hasFocus && _showEmojiTray) {
-      setState(() => _showEmojiTray = false);
-    }
     _updateMentionQuery();
   }
 
@@ -123,11 +120,6 @@ class _MessageInputState extends ConsumerState<MessageInput> {
               query: mentionQuery,
               onSelected: _insertMention,
             ),
-          if (_showEmojiTray)
-            _EmojiTray(
-              theme: theme,
-              onSelected: _insertEmoji,
-            ),
           Padding(
             padding: const EdgeInsets.fromLTRB(12, 4, 12, 12),
             child: DecoratedBox(
@@ -159,20 +151,6 @@ class _MessageInputState extends ConsumerState<MessageInput> {
                               .sendImage(widget.room),
                       icon: const Icon(Icons.image_outlined),
                       tooltip: 'Send image',
-                    ),
-                    IconButton(
-                      onPressed: state.isLoading
-                          ? null
-                          : () {
-                              FocusScope.of(context).unfocus();
-                              setState(() => _showEmojiTray = !_showEmojiTray);
-                            },
-                      icon: Icon(
-                        _showEmojiTray
-                            ? Icons.keyboard_rounded
-                            : Icons.emoji_emotions_outlined,
-                      ),
-                      tooltip: _showEmojiTray ? 'Show keyboard' : 'Show emojis',
                     ),
                     Expanded(
                       child: TextField(
@@ -281,66 +259,6 @@ class _MessageInputState extends ConsumerState<MessageInput> {
     _focusNode.requestFocus();
     _updateMentionQuery();
   }
-
-  void _insertEmoji(String emoji) {
-    if (!mounted) return;
-    final selection = _controller.selection;
-    final text = _controller.text;
-    final start = selection.start >= 0 ? selection.start : text.length;
-    final end = selection.end >= 0 ? selection.end : text.length;
-    final nextText = text.replaceRange(start, end, emoji);
-    final nextOffset = start + emoji.length;
-    _controller.value = TextEditingValue(
-      text: nextText,
-      selection: TextSelection.collapsed(offset: nextOffset),
-    );
-    _focusNode.requestFocus();
-    _onTextChanged(_controller.text);
-  }
-}
-
-class _EmojiTray extends StatelessWidget {
-  const _EmojiTray({
-    required this.theme,
-    required this.onSelected,
-  });
-
-  final ThemeData theme;
-  final ValueChanged<String> onSelected;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.fromLTRB(12, 0, 12, 4),
-      padding: const EdgeInsets.all(10),
-      decoration: BoxDecoration(
-        color: theme.colorScheme.surface,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(
-          color: theme.colorScheme.outlineVariant.withValues(alpha: 0.7),
-        ),
-      ),
-      child: Wrap(
-        spacing: 6,
-        runSpacing: 6,
-        children: _quickEmojis
-            .map(
-              (emoji) => InkWell(
-                onTap: () => onSelected(emoji),
-                borderRadius: BorderRadius.circular(14),
-                child: Padding(
-                  padding: const EdgeInsets.all(8),
-                  child: Text(
-                    emoji,
-                    style: const TextStyle(fontSize: 24),
-                  ),
-                ),
-              ),
-            )
-            .toList(),
-      ),
-    );
-  }
 }
 
 class _ReplyPreview extends StatelessWidget {
@@ -397,15 +315,8 @@ class _ReplyPreview extends StatelessWidget {
                 Text(
                   displayName,
                   style: theme.textTheme.bodySmall?.copyWith(
-                    color: Colors.white,
+                    color: theme.colorScheme.onSurface,
                     fontWeight: FontWeight.w700,
-                    shadows: const [
-                      Shadow(
-                        color: Colors.black38,
-                        blurRadius: 4,
-                        offset: Offset(0, 1),
-                      ),
-                    ],
                   ),
                 ),
                 const SizedBox(height: 2),

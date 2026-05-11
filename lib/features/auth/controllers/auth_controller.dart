@@ -46,8 +46,8 @@ class AuthController extends StateNotifier<AsyncValue<void>> {
 
   Future<bool> signInWithGoogle() async {
     state = const AsyncValue.loading();
-    state =
-        await AsyncValue.guard(() => ref.read(authServiceProvider).signInWithGoogle());
+    state = await AsyncValue.guard(
+        () => ref.read(authServiceProvider).signInWithGoogle());
     return !state.hasError;
   }
 
@@ -55,9 +55,10 @@ class AuthController extends StateNotifier<AsyncValue<void>> {
     await ref.read(authServiceProvider).signOut();
   }
 
-  Future<void> deleteAccount() async {
+  Future<bool> deleteAccount() async {
     state = const AsyncValue.loading();
-    state =
-        await AsyncValue.guard(() => ref.read(authServiceProvider).deleteAccount());
+    state = await AsyncValue.guard(
+        () => ref.read(authServiceProvider).deleteAccount());
+    return !state.hasError;
   }
 }

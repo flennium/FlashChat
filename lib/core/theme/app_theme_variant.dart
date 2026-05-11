@@ -209,10 +209,10 @@ class ThemeCatalog {
     required Color darkSurfaceAlt,
     required TextTheme Function([TextTheme?]) font,
   }) {
-    const lightText = Color.fromARGB(255, 255, 255, 255);
-    const lightTextSec = Color(0xFF6B7280);
-    const darkText = Color(0xFFF1F0FF);
-    const darkTextSec = Color(0xFF9CA3AF);
+    const lightText = Color(0xFF0F172A);
+    const lightTextSec = Color(0xFF475569);
+    const darkText = Color(0xFFF8FAFC);
+    const darkTextSec = Color(0xFFCBD5E1);
     const lightError = Color(0xFFEF4444);
     const darkError = Color(0xFFF87171);
 

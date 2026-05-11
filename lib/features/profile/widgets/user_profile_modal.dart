@@ -55,6 +55,7 @@ class UserProfileModal extends ConsumerWidget {
               final isOnline = onlineAsync.valueOrNull ??
                   (user.lastSeen != null &&
                       DateTime.now().difference(user.lastSeen!).inMinutes < 5);
+              final isDeleted = user.isDeleted;
 
               return CustomScrollView(
                 controller: scrollController,
@@ -75,7 +76,7 @@ class UserProfileModal extends ConsumerWidget {
                         const SizedBox(height: 18),
                         _ProfileHeader(
                           user: user,
-                          isOnline: isOnline,
+                          isOnline: isDeleted ? false : isOnline,
                         ),
                         const SizedBox(height: 18),
                         Padding(
@@ -94,12 +95,18 @@ class UserProfileModal extends ConsumerWidget {
                               Expanded(
                                 child: _StatCard(
                                   icon: Icons.schedule_rounded,
-                                  label: isOnline ? 'Status' : 'Last seen',
-                                  value: isOnline
-                                      ? 'Active now'
-                                      : user.lastSeen != null
-                                          ? _relativeTime(user.lastSeen!)
-                                          : 'Recently offline',
+                                  label: isDeleted
+                                      ? 'Account'
+                                      : isOnline
+                                          ? 'Status'
+                                          : 'Last seen',
+                                  value: isDeleted
+                                      ? 'Deleted'
+                                      : isOnline
+                                          ? 'Active now'
+                                          : user.lastSeen != null
+                                              ? _relativeTime(user.lastSeen!)
+                                              : 'Recently offline',
                                 ),
                               ),
                             ],
@@ -113,7 +120,7 @@ class UserProfileModal extends ConsumerWidget {
                     padding: const EdgeInsets.fromLTRB(20, 0, 20, 28),
                     sliver: SliverList.list(
                       children: [
-                        if (user.bio.trim().isNotEmpty) ...[
+                        if (!isDeleted && user.bio.trim().isNotEmpty) ...[
                           _ProfilePanel(
                             title: 'About',
                             icon: Icons.auto_awesome_rounded,
@@ -128,16 +135,18 @@ class UserProfileModal extends ConsumerWidget {
                           ),
                           const SizedBox(height: 14),
                         ],
-                        _ProfilePanel(
-                          title: 'Contact',
-                          icon: Icons.mail_outline_rounded,
-                          child: _InfoRow(
-                            icon: Icons.alternate_email_rounded,
-                            label: 'Email',
-                            value: user.email,
+                        if (!isDeleted) ...[
+                          _ProfilePanel(
+                            title: 'Contact',
+                            icon: Icons.mail_outline_rounded,
+                            child: _InfoRow(
+                              icon: Icons.alternate_email_rounded,
+                              label: 'Email',
+                              value: user.email,
+                            ),
                           ),
-                        ),
-                        const SizedBox(height: 14),
+                          const SizedBox(height: 14),
+                        ],
                         _ProfilePanel(
                           title: 'Snapshot',
                           icon: Icons.person_outline_rounded,
@@ -146,15 +155,17 @@ class UserProfileModal extends ConsumerWidget {
                               _InfoRow(
                                 icon: Icons.badge_outlined,
                                 label: 'Display name',
-                                value: user.name,
+                                value: user.displayName,
                               ),
                               const SizedBox(height: 12),
                               _InfoRow(
                                 icon: Icons.tag_rounded,
                                 label: 'Username',
-                                value: user.username.isNotEmpty
-                                    ? '@${user.username}'
-                                    : 'Not set',
+                                value: isDeleted
+                                    ? 'Deleted user'
+                                    : user.username.isNotEmpty
+                                        ? '@${user.username}'
+                                        : 'Not set',
                               ),
                             ],
                           ),
@@ -208,7 +219,8 @@ class _ProfileHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final initials = user.name.isNotEmpty ? user.name[0].toUpperCase() : '?';
+    final initials =
+        user.displayName.isNotEmpty ? user.displayName[0].toUpperCase() : '?';
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -288,7 +300,7 @@ class _ProfileHeader extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    user.name,
+                    user.displayName,
                     style: theme.textTheme.headlineSmall?.copyWith(
                       fontWeight: FontWeight.w800,
                       letterSpacing: -0.4,
@@ -296,16 +308,17 @@ class _ProfileHeader extends StatelessWidget {
                   ),
                   const SizedBox(height: 6),
                   Text(
-                    user.username.isNotEmpty
-                        ? '@${user.username}'
-                        : 'FlashChat member',
+                    user.handleLabel,
                     style: theme.textTheme.titleSmall?.copyWith(
                       color: theme.colorScheme.primary,
                       fontWeight: FontWeight.w700,
                     ),
                   ),
                   const SizedBox(height: 10),
-                  _StatusPill(isOnline: isOnline),
+                  _StatusPill(
+                    isOnline: isOnline,
+                    isDeleted: user.isDeleted,
+                  ),
                 ],
               ),
             ),
@@ -317,9 +330,13 @@ class _ProfileHeader extends StatelessWidget {
 }
 
 class _StatusPill extends StatelessWidget {
-  const _StatusPill({required this.isOnline});
+  const _StatusPill({
+    required this.isOnline,
+    required this.isDeleted,
+  });
 
   final bool isOnline;
+  final bool isDeleted;
 
   @override
   Widget build(BuildContext context) {
@@ -330,7 +347,9 @@ class _StatusPill extends StatelessWidget {
       decoration: BoxDecoration(
         color: isOnline
             ? const Color(0xFFDCFCE7)
-            : theme.colorScheme.surfaceContainerHighest,
+            : isDeleted
+                ? theme.colorScheme.errorContainer
+                : theme.colorScheme.surfaceContainerHighest,
         borderRadius: BorderRadius.circular(999),
       ),
       child: Row(
@@ -343,17 +362,25 @@ class _StatusPill extends StatelessWidget {
               shape: BoxShape.circle,
               color: isOnline
                   ? const Color(0xFF16A34A)
-                  : theme.colorScheme.outline,
+                  : isDeleted
+                      ? theme.colorScheme.error
+                      : theme.colorScheme.outline,
             ),
           ),
           const SizedBox(width: 8),
           Text(
-            isOnline ? 'Online now' : 'Currently offline',
+            isDeleted
+                ? 'Account deleted'
+                : isOnline
+                    ? 'Online now'
+                    : 'Currently offline',
             style: theme.textTheme.bodyMedium?.copyWith(
               fontWeight: FontWeight.w700,
               color: isOnline
                   ? const Color(0xFF166534)
-                  : theme.colorScheme.onSurface.withValues(alpha: 0.72),
+                  : isDeleted
+                      ? theme.colorScheme.onErrorContainer
+                      : theme.colorScheme.onSurface.withValues(alpha: 0.72),
             ),
           ),
         ],

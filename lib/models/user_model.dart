@@ -13,6 +13,8 @@ class UserModel {
     this.theme = 'system',
     this.notificationsEnabled = true,
     this.lastSeen,
+    this.isDeleted = false,
+    this.deletedAt,
     this.blockedUsers = const [],
     this.mutedRooms = const [],
   });
@@ -26,10 +28,24 @@ class UserModel {
   final String bio;
   final DateTime createdAt;
   final DateTime? lastSeen;
+  final bool isDeleted;
+  final DateTime? deletedAt;
   final String theme;
   final bool notificationsEnabled;
   final List<String> blockedUsers;
   final List<String> mutedRooms;
+
+  String get displayName {
+    if (isDeleted) return 'Deleted user';
+    if (name.trim().isNotEmpty) return name.trim();
+    return 'FlashChat User';
+  }
+
+  String get handleLabel {
+    if (isDeleted) return 'Deleted user';
+    if (username.trim().isNotEmpty) return '@${username.trim()}';
+    return 'FlashChat member';
+  }
 
   factory UserModel.fromMap(Map<String, dynamic> map, String id) {
     return UserModel(
@@ -42,6 +58,8 @@ class UserModel {
       bio: map['bio'] ?? '',
       createdAt: (map['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
       lastSeen: (map['lastSeen'] as Timestamp?)?.toDate(),
+      isDeleted: map['isDeleted'] ?? false,
+      deletedAt: (map['deletedAt'] as Timestamp?)?.toDate(),
       theme: map['theme'] ?? 'system',
       notificationsEnabled: map['notificationsEnabled'] ?? true,
       blockedUsers: List<String>.from(map['blockedUsers'] ?? const []),
@@ -59,6 +77,8 @@ class UserModel {
       'bio': bio,
       'createdAt': Timestamp.fromDate(createdAt),
       'lastSeen': lastSeen == null ? null : Timestamp.fromDate(lastSeen!),
+      'isDeleted': isDeleted,
+      'deletedAt': deletedAt == null ? null : Timestamp.fromDate(deletedAt!),
       'theme': theme,
       'notificationsEnabled': notificationsEnabled,
       'blockedUsers': blockedUsers,
@@ -73,6 +93,8 @@ class UserModel {
     String? fcmToken,
     String? bio,
     DateTime? lastSeen,
+    bool? isDeleted,
+    DateTime? deletedAt,
     String? theme,
     bool? notificationsEnabled,
     List<String>? blockedUsers,
@@ -88,6 +110,8 @@ class UserModel {
       bio: bio ?? this.bio,
       createdAt: createdAt,
       lastSeen: lastSeen ?? this.lastSeen,
+      isDeleted: isDeleted ?? this.isDeleted,
+      deletedAt: deletedAt ?? this.deletedAt,
       theme: theme ?? this.theme,
       notificationsEnabled: notificationsEnabled ?? this.notificationsEnabled,
       blockedUsers: blockedUsers ?? this.blockedUsers,

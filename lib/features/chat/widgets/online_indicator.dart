@@ -7,9 +7,22 @@ class OnlineIndicator extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     return Chip(
-      avatar: const CircleAvatar(radius: 5, backgroundColor: Color(0xFF10B981)),
-      label: Text('$count'),
+      backgroundColor: theme.colorScheme.surfaceContainerHighest,
+      side: BorderSide(
+        color: theme.colorScheme.outlineVariant,
+      ),
+      avatar: const CircleAvatar(
+        radius: 5,
+        backgroundColor: Color(0xFF10B981),
+      ),
+      label: Text(
+        '$count',
+        style: theme.textTheme.labelLarge?.copyWith(
+          color: theme.colorScheme.onSurface,
+        ),
+      ),
     );
   }
 }

@@ -64,11 +64,26 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   // ── Reply-scroll (GlobalKey map) ─────────────────────────────────────────
   final Map<String, GlobalKey> _messageKeys = {};
 
+  void _setActiveRoomIdDeferred(String roomId) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _activeRoomIdController.state = roomId;
+    });
+  }
+
+  void _clearActiveRoomIdDeferred(String roomId) {
+    Future<void>(() {
+      if (_activeRoomIdController.state == roomId) {
+        _activeRoomIdController.state = null;
+      }
+    });
+  }
+
   @override
   void initState() {
     super.initState();
     _activeRoomIdController = ref.read(activeRoomIdProvider.notifier);
-    _activeRoomIdController.state = widget.room.id;
+    _setActiveRoomIdDeferred(widget.room.id);
     _scrollController.addListener(_onScroll);
   }
 
@@ -76,15 +91,13 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   void didUpdateWidget(covariant ChatScreen oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.room.id != widget.room.id) {
-      _activeRoomIdController.state = widget.room.id;
+      _setActiveRoomIdDeferred(widget.room.id);
     }
   }
 
   @override
   void dispose() {
-    if (_activeRoomIdController.state == widget.room.id) {
-      _activeRoomIdController.state = null;
-    }
+    _clearActiveRoomIdDeferred(widget.room.id);
     _scrollController.dispose();
     super.dispose();
   }
@@ -377,6 +390,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     final currentProfile = ref.watch(currentUserProfileProvider).valueOrNull;
     final currentUid = currentProfile?.uid ?? '';
     final roomAdminEmail = ref.watch(roomAdminEmailProvider).valueOrNull ?? '';
+    final theme = Theme.of(context);
     final canManageRoom = currentProfile != null &&
         (currentProfile.uid == room.createdBy ||
             (roomAdminEmail.isNotEmpty &&
@@ -401,19 +415,18 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                 children: [
                   Text(
                     room.name,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.w600,
-                      fontSize: 16,
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      color: theme.colorScheme.onSurface,
+                      fontWeight: FontWeight.w700,
                     ),
                   ),
                   Text(
                     room.ownerLabel.isNotEmpty
                         ? 'Room owner ${room.ownerLabel.toLowerCase()}'
                         : 'Room owner unknown',
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: Colors.white.withValues(alpha: 0.82),
-                        ),
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
                   ),
                 ],
               ),
@@ -482,7 +495,7 @@ class _ScrollToBottomFab extends StatelessWidget {
           shape: BoxShape.circle,
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.15),
+              color: theme.colorScheme.shadow.withValues(alpha: 0.18),
               blurRadius: 8,
               offset: const Offset(0, 2),
             ),

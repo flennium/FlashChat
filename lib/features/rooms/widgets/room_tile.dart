@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/providers/app_providers.dart';
+import '../../../core/utils/input_sanitizer.dart';
+import '../../../core/utils/validators.dart';
 import '../../../models/room_model.dart';
 import '../../chat/screens/chat_screen.dart';
 import '../controllers/room_controller.dart';
@@ -202,40 +204,72 @@ class RoomTile extends ConsumerWidget {
   }
 
   Future<String?> _promptForAccessCode(BuildContext context) async {
-    final controller = TextEditingController();
-
     final result = await showDialog<String>(
       context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: const Text('Private room'),
-        content: TextField(
-          controller: controller,
+      builder: (_) => const _PrivateRoomAccessDialog(),
+    );
+
+    final trimmed = InputSanitizer.normalizeAccessCode(result ?? '');
+    return trimmed.isEmpty ? null : trimmed;
+  }
+}
+
+class _PrivateRoomAccessDialog extends StatefulWidget {
+  const _PrivateRoomAccessDialog();
+
+  @override
+  State<_PrivateRoomAccessDialog> createState() =>
+      _PrivateRoomAccessDialogState();
+}
+
+class _PrivateRoomAccessDialogState extends State<_PrivateRoomAccessDialog> {
+  final _formKey = GlobalKey<FormState>();
+  final _controller = TextEditingController();
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Private room'),
+      content: Form(
+        key: _formKey,
+        child: TextFormField(
+          controller: _controller,
           autofocus: true,
           obscureText: true,
           decoration: const InputDecoration(
             labelText: 'Access code',
             hintText: 'Enter room code',
           ),
-          onSubmitted: (_) =>
-              Navigator.of(dialogContext).pop(controller.text.trim()),
+          validator: Validators.accessCodeRequired,
+          onFieldSubmitted: (_) => _submit(),
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(),
-            child: const Text('Cancel'),
-          ),
-          FilledButton(
-            onPressed: () =>
-                Navigator.of(dialogContext).pop(controller.text.trim()),
-            child: const Text('Join'),
-          ),
-        ],
       ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Cancel'),
+        ),
+        FilledButton(
+          onPressed: _submit,
+          child: const Text('Join'),
+        ),
+      ],
     );
+  }
 
-    controller.dispose();
-    final trimmed = result?.trim() ?? '';
-    return trimmed.isEmpty ? null : trimmed;
+  void _submit() {
+    if (!_formKey.currentState!.validate()) {
+      return;
+    }
+    Navigator.of(context).pop(
+      InputSanitizer.normalizeAccessCode(_controller.text),
+    );
   }
 }
 

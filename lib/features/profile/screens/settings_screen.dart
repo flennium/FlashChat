@@ -3,6 +3,7 @@ import 'dart:math';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:simple_icons/simple_icons.dart';
 
 import '../../../core/providers/app_providers.dart';
 import '../../../core/theme/app_theme_variant.dart';
@@ -69,6 +70,30 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     );
   }
 
+  Future<void> _showDeleteAccountSheet({
+    required BuildContext context,
+    required String email,
+    required String username,
+  }) async {
+    final deleted = await showModalBottomSheet<bool>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      useSafeArea: true,
+      builder: (_) => _DeleteAccountSheet(
+        email: email,
+        username: username,
+      ),
+    );
+
+    if (deleted == true && context.mounted) {
+      Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute<void>(builder: (_) => const LoginScreen()),
+        (route) => false,
+      );
+    }
+  }
+
   void _onVersionTap() {
     _versionTapStreak++;
 
@@ -92,8 +117,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     final activeVariant = ref.watch(themeVariantControllerProvider);
     final profile = ref.watch(currentUserProfileProvider).valueOrNull;
     final theme = Theme.of(context);
-    const titleColor = Colors.white;
-    final mutedTitleColor = Colors.white.withValues(alpha: 0.78);
+    final titleColor = theme.colorScheme.onSurface;
+    final mutedTitleColor = theme.colorScheme.onSurface.withValues(alpha: 0.78);
 
     return Scaffold(
       appBar: AppBar(title: const Text('Settings')),
@@ -216,9 +241,15 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           ListTile(
             contentPadding: EdgeInsets.zero,
             title: const Text('Delete account'),
+            subtitle: const Text('Permanently remove your profile and data'),
             textColor: theme.colorScheme.error,
-            onTap: () =>
-                ref.read(authControllerProvider.notifier).deleteAccount(),
+            onTap: profile == null
+                ? null
+                : () => _showDeleteAccountSheet(
+                      context: context,
+                      email: profile.email,
+                      username: profile.username,
+                    ),
           ),
 
           const SizedBox(height: 28),
@@ -495,7 +526,7 @@ class _Badge extends StatelessWidget {
 class _PoweredBadge extends StatelessWidget {
   const _PoweredBadge({
     required this.label,
-    required this.emoji,
+    this.emoji = '',
     required this.theme,
   });
   final String label;
@@ -504,25 +535,312 @@ class _PoweredBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final iconSurface = theme.brightness == Brightness.dark
+        ? Colors.white.withValues(alpha: 0.06)
+        : Colors.black.withValues(alpha: 0.035);
+
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Text(emoji, style: const TextStyle(fontSize: 24)),
+        Container(
+          width: 44,
+          height: 44,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: iconSurface,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(
+              color: theme.colorScheme.onSurface.withValues(alpha: 0.08),
+            ),
+          ),
+          child: _buildBrandIcon(),
+        ),
         const SizedBox(height: 5),
         Text(
           label,
           style: theme.textTheme.bodySmall?.copyWith(
             fontWeight: FontWeight.w600,
             fontSize: 11,
-            color: Colors.white,
+            color: theme.colorScheme.onSurface.withValues(alpha: 0.78),
           ),
         ),
       ],
     );
   }
+
+  Widget _buildBrandIcon() {
+    switch (label) {
+      case 'Flutter':
+        return const Icon(
+          SimpleIcons.flutter,
+          color: SimpleIconColors.flutter,
+          size: 24,
+        );
+      case 'Firebase':
+        return const Icon(
+          SimpleIcons.firebase,
+          color: SimpleIconColors.firebase,
+          size: 24,
+        );
+      case 'Supabase':
+        return const Icon(
+          SimpleIcons.supabase,
+          color: SimpleIconColors.supabase,
+          size: 24,
+        );
+      case 'Riverpod':
+        return Image.asset(
+          'assets/branding/riverpod_icon.png',
+          width: 24,
+          height: 24,
+          fit: BoxFit.contain,
+        );
+      default:
+        return const SizedBox.shrink();
+    }
+  }
 }
 
 // ─── Password sheet ──────────────────────────────────────────────────────────
+
+class _DeleteAccountSheet extends ConsumerStatefulWidget {
+  const _DeleteAccountSheet({
+    required this.email,
+    required this.username,
+  });
+
+  final String email;
+  final String username;
+
+  @override
+  ConsumerState<_DeleteAccountSheet> createState() =>
+      _DeleteAccountSheetState();
+}
+
+class _DeleteAccountSheetState extends ConsumerState<_DeleteAccountSheet> {
+  final _confirmCtrl = TextEditingController();
+
+  bool _loading = false;
+  String? _error;
+
+  @override
+  void dispose() {
+    _confirmCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _deleteAccount() async {
+    if (_confirmCtrl.text.trim().toUpperCase() != 'DELETE') {
+      setState(() => _error = 'Type DELETE to confirm account removal.');
+      return;
+    }
+
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+
+    final success =
+        await ref.read(authControllerProvider.notifier).deleteAccount();
+    if (!mounted) return;
+
+    if (success) {
+      Navigator.of(context).pop(true);
+      return;
+    }
+
+    final failure = ref.read(authControllerProvider);
+    final rawError = failure.asError?.error.toString() ?? '';
+    setState(() {
+      _loading = false;
+      _error = rawError.contains('requires-recent-login')
+          ? 'For security, sign in again before deleting your account.'
+          : 'Account deletion failed. Please try again.';
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final usernameLabel =
+        widget.username.isNotEmpty ? '@${widget.username}' : widget.email;
+
+    return DraggableScrollableSheet(
+      initialChildSize: 0.72,
+      minChildSize: 0.55,
+      maxChildSize: 0.92,
+      builder: (_, scrollCtrl) => Container(
+        decoration: BoxDecoration(
+          color: theme.colorScheme.surface,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.12),
+              blurRadius: 20,
+              offset: const Offset(0, -4),
+            ),
+          ],
+        ),
+        child: ListView(
+          controller: scrollCtrl,
+          padding: const EdgeInsets.fromLTRB(24, 0, 24, 32),
+          children: [
+            Center(
+              child: Container(
+                margin: const EdgeInsets.only(top: 12, bottom: 20),
+                width: 36,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: theme.colorScheme.onSurface.withValues(alpha: 0.2),
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            ),
+            Row(
+              children: [
+                Container(
+                  width: 46,
+                  height: 46,
+                  decoration: BoxDecoration(
+                    color: theme.colorScheme.error.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  child: Icon(
+                    Icons.delete_forever_rounded,
+                    color: theme.colorScheme.error,
+                    size: 26,
+                  ),
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Delete account',
+                        style: theme.textTheme.headlineSmall?.copyWith(
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        usernameLabel,
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: theme.colorScheme.onSurface
+                              .withValues(alpha: 0.6),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 20),
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: theme.colorScheme.error.withValues(alpha: 0.08),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(
+                  color: theme.colorScheme.error.withValues(alpha: 0.2),
+                ),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'This action is permanent.',
+                    style: theme.textTheme.titleSmall?.copyWith(
+                      color: theme.colorScheme.error,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  Text(
+                    'Deleting your account will remove your profile, username reservation, presence status, room memberships, rooms you created, and messages tied to this account.',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color:
+                          theme.colorScheme.onSurface.withValues(alpha: 0.78),
+                      height: 1.55,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Older chats will stay visible, but your identity will be replaced with Deleted user.',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color:
+                          theme.colorScheme.onSurface.withValues(alpha: 0.64),
+                      height: 1.45,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 20),
+            Text(
+              'Type DELETE to confirm',
+              style: theme.textTheme.titleSmall?.copyWith(
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            const SizedBox(height: 10),
+            TextField(
+              controller: _confirmCtrl,
+              textCapitalization: TextCapitalization.characters,
+              enabled: !_loading,
+              decoration: const InputDecoration(
+                hintText: 'DELETE',
+              ),
+            ),
+            if (_error != null) ...[
+              const SizedBox(height: 12),
+              Text(
+                _error!,
+                style: TextStyle(
+                  color: theme.colorScheme.error,
+                  fontSize: 13,
+                ),
+              ),
+            ],
+            const SizedBox(height: 24),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton(
+                    onPressed: _loading
+                        ? null
+                        : () => Navigator.of(context).pop(false),
+                    child: const Text('Cancel'),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: FilledButton(
+                    style: FilledButton.styleFrom(
+                      backgroundColor: theme.colorScheme.error,
+                      foregroundColor: theme.colorScheme.onError,
+                    ),
+                    onPressed: _loading ? null : _deleteAccount,
+                    child: _loading
+                        ? SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: theme.colorScheme.onError,
+                            ),
+                          )
+                        : const Text('Delete account'),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
 
 class _PasswordSheet extends ConsumerStatefulWidget {
   const _PasswordSheet({required this.email});

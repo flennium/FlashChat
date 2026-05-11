@@ -142,7 +142,7 @@ class MessageBubble extends ConsumerWidget {
                         message.senderName,
                         style: theme.textTheme.bodySmall?.copyWith(
                           fontWeight: FontWeight.w600,
-                          color: Colors.white.withValues(alpha: 0.72),
+                          color: theme.colorScheme.onSurfaceVariant,
                           fontSize: 11.5,
                         ),
                       ),

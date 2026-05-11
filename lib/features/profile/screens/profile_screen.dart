@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/providers/app_providers.dart';
 import '../../../core/utils/date_formatter.dart';
+import '../../../core/utils/input_sanitizer.dart';
 import '../../../core/utils/validators.dart';
 import '../../../models/user_model.dart';
 import '../controllers/profile_controller.dart';
@@ -112,7 +113,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                     _ProfileStatChip(
                       icon: Icons.badge_outlined,
                       label: 'Handle',
-                      value: user.username.isEmpty ? 'Not set' : '@${user.username}',
+                      value: user.username.isEmpty
+                          ? 'Not set'
+                          : '@${user.username}',
                     ),
                   ],
                 ),
@@ -125,7 +128,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                     TextField(
                       controller: _nameController,
                       textCapitalization: TextCapitalization.words,
-                      decoration: const InputDecoration(labelText: 'Display name'),
+                      decoration:
+                          const InputDecoration(labelText: 'Display name'),
                     ),
                     const SizedBox(height: 16),
                     TextField(
@@ -191,9 +195,10 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                       const SizedBox(height: 10),
                     ],
                     FilledButton(
-                      onPressed: (state.isLoading || _usernameAvailable == false)
-                          ? null
-                          : () => _save(user),
+                      onPressed:
+                          (state.isLoading || _usernameAvailable == false)
+                              ? null
+                              : () => _save(user),
                       style: FilledButton.styleFrom(
                         padding: const EdgeInsets.symmetric(vertical: 16),
                       ),
@@ -242,7 +247,27 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
 
   Future<void> _save(UserModel user) async {
     final notifier = ref.read(profileControllerProvider.notifier);
-    final newUsername = _usernameController.text.trim().toLowerCase();
+    final normalizedName =
+        InputSanitizer.normalizeDisplayName(_nameController.text);
+    final normalizedBio = InputSanitizer.normalizeBio(_bioController.text);
+    final newUsername =
+        InputSanitizer.normalizeUsername(_usernameController.text);
+
+    final nameError = Validators.displayName(normalizedName);
+    if (nameError != null) {
+      _showError(nameError);
+      return;
+    }
+    final usernameError = Validators.usernameOptional(newUsername);
+    if (usernameError != null) {
+      _showError(usernameError);
+      return;
+    }
+    final bioError = Validators.bio(normalizedBio);
+    if (bioError != null) {
+      _showError(bioError);
+      return;
+    }
 
     if (newUsername != _initialUsername) {
       final ok = await notifier.updateUsername(
@@ -256,8 +281,17 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
 
     await notifier.updateProfile(
       uid: user.uid,
-      name: _nameController.text.trim(),
-      bio: _bioController.text.trim(),
+      name: normalizedName,
+      bio: normalizedBio,
+    );
+  }
+
+  void _showError(String message) {
+    if (!mounted) {
+      return;
+    }
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message)),
     );
   }
 }

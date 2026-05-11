@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/utils/input_sanitizer.dart';
 import '../../../core/utils/validators.dart';
 import '../../../models/room_model.dart';
 import '../../profile/widgets/avatar_picker.dart';
@@ -94,15 +95,13 @@ class _CreateRoomScreenState extends ConsumerState<CreateRoomScreen> {
                 TextFormField(
                   controller: _nameController,
                   decoration: const InputDecoration(labelText: 'Room name'),
-                  validator: (value) =>
-                      Validators.requiredField(value, label: 'Room name'),
+                  validator: Validators.roomName,
                 ),
                 const SizedBox(height: 16),
                 TextFormField(
                   controller: _descriptionController,
                   decoration: const InputDecoration(labelText: 'Description'),
-                  validator: (value) =>
-                      Validators.requiredField(value, label: 'Description'),
+                  validator: Validators.roomDescription,
                 ),
                 const SizedBox(height: 16),
                 SwitchListTile(
@@ -116,8 +115,7 @@ class _CreateRoomScreenState extends ConsumerState<CreateRoomScreen> {
                     decoration: const InputDecoration(labelText: 'Access code'),
                     validator: (value) {
                       if (!_isPrivate) return null;
-                      return Validators.requiredField(value,
-                          label: 'Access code');
+                      return Validators.accessCodeRequired(value);
                     },
                   ),
               ],
@@ -149,20 +147,26 @@ class _CreateRoomScreenState extends ConsumerState<CreateRoomScreen> {
     if (!_formKey.currentState!.validate()) return;
 
     final notifier = ref.read(roomControllerProvider.notifier);
+    final normalizedName =
+        InputSanitizer.normalizeRoomName(_nameController.text);
+    final normalizedDescription =
+        InputSanitizer.normalizeRoomDescription(_descriptionController.text);
+    final normalizedAccessCode =
+        InputSanitizer.normalizeAccessCode(_accessCodeController.text);
     final ok = widget.isEditing
         ? await notifier.updateRoom(
             room: widget.room!,
-            name: _nameController.text.trim(),
-            description: _descriptionController.text.trim(),
+            name: normalizedName,
+            description: normalizedDescription,
             isPrivate: _isPrivate,
-            accessCode: _accessCodeController.text.trim(),
+            accessCode: normalizedAccessCode,
             avatarUrl: _avatarUrl,
           )
         : await notifier.createRoom(
-            name: _nameController.text.trim(),
-            description: _descriptionController.text.trim(),
+            name: normalizedName,
+            description: normalizedDescription,
             isPrivate: _isPrivate,
-            accessCode: _accessCodeController.text.trim(),
+            accessCode: normalizedAccessCode,
             avatarUrl: _avatarUrl,
           );
 
