@@ -51,6 +51,13 @@ Required CI secrets:
 - `FIREBASE_OPTIONS_DART`
 - `GOOGLE_SERVICES_JSON`
 
+Required Android release signing secrets:
+
+- `ANDROID_KEYSTORE_BASE64`
+- `ANDROID_KEYSTORE_PASSWORD`
+- `ANDROID_KEY_ALIAS`
+- `ANDROID_KEY_PASSWORD`
+
 The same configuration model is used for:
 
 - Android CI builds
@@ -58,6 +65,8 @@ The same configuration model is used for:
 - Windows CI builds
 - Windows release builds
 - Windows installer packaging in GitHub Actions
+
+Android release workflows are expected to use the same release keystore on every build. If those signing secrets are missing, the workflows should fail rather than fall back to a debug-signed APK.
 
 ## 5. Backend Secrets
 

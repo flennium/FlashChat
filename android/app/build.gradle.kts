@@ -1,3 +1,5 @@
+import org.gradle.api.GradleException
+
 plugins {
     id("com.android.application")
     // START: FlutterFire Configuration
@@ -22,6 +24,13 @@ android {
         !releaseKeystorePassword.isNullOrBlank() &&
         !releaseKeyAlias.isNullOrBlank() &&
         !releaseKeyPassword.isNullOrBlank()
+    val requireReleaseSigning = System.getenv("REQUIRE_RELEASE_SIGNING") == "true"
+
+    if (requireReleaseSigning && !hasReleaseSigning) {
+        throw GradleException(
+            "Release signing is required, but one or more Android signing environment variables are missing.",
+        )
+    }
 
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17

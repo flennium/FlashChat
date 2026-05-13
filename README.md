@@ -91,6 +91,13 @@ Because sensitive Firebase files are not committed, the workflow expects these G
 - `FIREBASE_OPTIONS_DART`
 - `GOOGLE_SERVICES_JSON`
 
+Android release builds also require these signing secrets so every APK is signed with the same release certificate:
+
+- `ANDROID_KEYSTORE_BASE64`
+- `ANDROID_KEYSTORE_PASSWORD`
+- `ANDROID_KEY_ALIAS`
+- `ANDROID_KEY_PASSWORD`
+
 Optional build-time secrets for app environment values:
 
 - `SUPABASE_URL`
@@ -103,7 +110,11 @@ How to set the required file secrets:
 
 1. Copy the full contents of your local `lib/firebase_options.dart` into `FIREBASE_OPTIONS_DART`.
 2. Copy the full contents of your local `android/app/google-services.json` into `GOOGLE_SERVICES_JSON`.
-3. In GitHub, go to `Settings -> Secrets and variables -> Actions -> New repository secret`.
+3. Export your release keystore as base64 and add it as `ANDROID_KEYSTORE_BASE64`.
+4. Add the matching keystore password, key alias, and key password secrets.
+5. In GitHub, go to `Settings -> Secrets and variables -> Actions -> New repository secret`.
+
+If those Android signing secrets are missing, the workflows now fail instead of silently producing a debug-signed release APK. That prevents Firebase/App Distribution from treating CI builds like a different app lineage.
 
 ## Publication Notes
 
