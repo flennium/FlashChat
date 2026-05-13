@@ -1,5 +1,6 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'dart:async';
 
 import '../../models/message_model.dart';
 import '../../models/user_model.dart';
@@ -43,6 +44,51 @@ final userOnlineStatusProvider =
 
 final onlineCountProvider = StreamProvider<int>((ref) {
   return ref.watch(presenceServiceProvider).watchOnlineCount();
+});
+
+final roomOnlineCountProvider =
+    StreamProvider.autoDispose.family<int, String>((ref, roomId) {
+  final controller = StreamController<int>();
+  final firestore = ref.read(firestoreServiceProvider);
+  final presence = ref.read(presenceServiceProvider);
+
+  Set<String> memberIds = const <String>{};
+  Map<String, bool> onlineStatuses = const <String, bool>{};
+
+  void emitCount() {
+    if (controller.isClosed) return;
+    if (memberIds.isEmpty) {
+      controller.add(0);
+      return;
+    }
+
+    final count = memberIds.where((uid) => onlineStatuses[uid] == true).length;
+    controller.add(count);
+  }
+
+  final membersSub = firestore.watchRoomMemberIds(roomId).listen(
+    (ids) {
+      memberIds = ids.toSet();
+      emitCount();
+    },
+    onError: controller.addError,
+  );
+
+  final presenceSub = presence.watchOnlineStatuses().listen(
+    (statuses) {
+      onlineStatuses = statuses;
+      emitCount();
+    },
+    onError: controller.addError,
+  );
+
+  ref.onDispose(() {
+    membersSub.cancel();
+    presenceSub.cancel();
+    controller.close();
+  });
+
+  return controller.stream;
 });
 
 final roomAdminEmailProvider = StreamProvider<String>((ref) {

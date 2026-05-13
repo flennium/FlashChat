@@ -65,6 +65,29 @@ class PresenceService {
     }
   }
 
+  Stream<Map<String, bool>> watchOnlineStatuses() {
+    if (!PlatformSupport.supportsRealtimePresence) {
+      return Stream<Map<String, bool>>.value(const {});
+    }
+    try {
+      return _client.ref(FirebaseConstants.userPresence).onValue.map((event) {
+        final raw = event.snapshot.value;
+        if (raw is! Map) return <String, bool>{};
+
+        final onlineStatuses = <String, bool>{};
+        for (final entry in raw.entries) {
+          final uid = entry.key?.toString();
+          final value = entry.value;
+          if (uid == null || uid.isEmpty || value is! Map) continue;
+          onlineStatuses[uid] = value['online'] == true;
+        }
+        return onlineStatuses;
+      });
+    } catch (_) {
+      return Stream<Map<String, bool>>.value(const {});
+    }
+  }
+
   /// Returns display names (e.g. "@alice" or "Bob") of users currently typing
   /// in [roomId], excluding the signed-in user.
   Stream<List<String>> watchTypingUsers(String roomId) {

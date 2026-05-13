@@ -380,7 +380,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     final room = roomAsync.valueOrNull ?? widget.room;
     final messagesAsync = ref.watch(roomMessagesProvider(widget.room.id));
     final onlineCount = supportsDesktopLiveSignals
-        ? ref.watch(onlineCountProvider).valueOrNull ?? 0
+        ? ref.watch(roomOnlineCountProvider(widget.room.id)).valueOrNull ?? 0
         : 0;
     final announcement = supportsDesktopLiveSignals
         ? ref.watch(announcementProvider).valueOrNull ?? ''

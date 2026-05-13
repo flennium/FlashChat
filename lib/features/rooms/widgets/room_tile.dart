@@ -95,7 +95,7 @@ class _RoomTileState extends ConsumerState<RoomTile> {
                         runSpacing: 6,
                         crossAxisAlignment: WrapCrossAlignment.center,
                         children: [
-                          GestureDetector(
+                          /*GestureDetector(
                             onTap: () => showRoomInfoSheet(context, room: room),
                             child: _RoomPill(
                               icon: Icons.info_outline_rounded,
@@ -104,7 +104,7 @@ class _RoomTileState extends ConsumerState<RoomTile> {
                                   theme.colorScheme.primary.withValues(alpha: 0.1),
                               foregroundColor: theme.colorScheme.primary,
                             ),
-                          ),
+                          ),*/
                           if (unreadCount > 0)
                             _RoomPill(
                               icon: Icons.mark_chat_unread_rounded,

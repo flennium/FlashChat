@@ -337,6 +337,16 @@ class FirestoreService {
         .map((doc) => (doc.data()?['unreadCount'] as num?)?.toInt() ?? 0);
   }
 
+  Stream<List<String>> watchRoomMemberIds(String roomId) {
+    return _firestore
+        .collection(FirebaseConstants.rooms)
+        .doc(roomId)
+        .collection(FirebaseConstants.members)
+        .snapshots()
+        .handleError((_) {})
+        .map((snapshot) => snapshot.docs.map((doc) => doc.id).toList());
+  }
+
   // Users
 
   Future<UserModel?> fetchCurrentUserProfile() async {
