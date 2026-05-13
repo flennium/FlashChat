@@ -1,132 +1,81 @@
 # FlashChat Setup Guide
 
-## 1. Purpose
+This guide is for running FlashChat locally for testing and development.
 
-This guide explains how to use FlashChat in two different ways:
+It covers:
 
-- as an end user who only wants to download and open the app
-- as a developer who wants to run or build the project locally
+- what you need installed
+- which local files and environment values are required
+- how to run Android and Windows builds
+- how to verify the app is working after first launch
 
-If you are new to development, start with the end-user sections first.
+## 1. What You Need
 
-## 2. If You Only Want To Download The App
-
-The easiest way to get FlashChat is from the GitHub Releases page.
-
-### Android
-
-1. Open the repository on GitHub.
-2. Go to the `Releases` section.
-3. Download the latest file that ends with:
-   `-android-release.apk`
-4. Move the file to your Android phone if needed.
-5. Open the APK on the phone.
-6. If Android warns that the app comes from an unknown source, allow installation for that file source.
-7. Finish the installation and open the app.
-
-### Windows
-
-1. Open the repository on GitHub.
-2. Go to the `Releases` section.
-3. Download the latest file that ends with:
-   `-windows-setup.exe`
-4. Open the installer file.
-5. Follow the installation steps shown on screen.
-6. Launch FlashChat from the installer finish screen, Start menu, or desktop shortcut if you created one.
-
-If Windows SmartScreen appears, choose:
-
-- `More info`
-- `Run anyway`
-
-This can happen for unsigned desktop builds distributed outside an app store.
-
-If you prefer a portable version that does not install anything, you can instead download the file that ends with `-windows.zip`, extract it, and run `flashchat.exe`.
-
-## 3. If You Want To Run The Project Locally
-
-You need:
+Required:
 
 - Git
 - Flutter SDK
-- Android Studio or Visual Studio Code
-- Android SDK for Android builds
-- Visual Studio with Desktop development with C++ for Windows builds
+- a code editor such as VS Code or Android Studio
 
-## 4. Download The Project
+Platform-specific:
 
-1. Install Git if you do not already have it.
-2. Clone the repository:
+- Android:
+  - Android Studio
+  - Android SDK
+  - a physical Android device or emulator
+- Windows desktop:
+  - Visual Studio Community or Professional
+  - `Desktop development with C++` workload
+
+Useful check:
+
+```bash
+flutter doctor
+```
+
+Before trying to run the app, make sure `flutter doctor` is mostly clean for the platform you want to use.
+
+## 2. Clone The Project
 
 ```bash
 git clone https://github.com/flennium/FlashChat.git
+cd FlashChat
 ```
 
-3. Open the project folder.
-
-## 5. Install Flutter
-
-1. Download Flutter from the official Flutter website.
-2. Extract it to a folder on your computer.
-3. Add Flutter to your system `PATH`.
-4. Run:
+## 3. Install Flutter Packages
 
 ```bash
-flutter doctor
+flutter pub get
 ```
 
-5. Follow Flutter's instructions until the important checks are green.
+## 4. Firebase Files You Need
 
-## 6. Install Android Build Tools
+FlashChat depends on Firebase client configuration.
 
-For Android development:
-
-1. Install Android Studio.
-2. Open Android Studio once so it can install the Android SDK.
-3. Accept any SDK licenses if prompted.
-4. Verify the setup:
-
-```bash
-flutter doctor
-```
-
-## 7. Install Windows Build Tools
-
-For Windows desktop development:
-
-1. Install Visual Studio Community.
-2. During installation, select:
-   `Desktop development with C++`
-3. After installation, run:
-
-```bash
-flutter doctor
-```
-
-Flutter should confirm Windows desktop tooling is available.
-
-## 8. Project Configuration Files
-
-This repository does not commit sensitive Firebase files.
-
-For local development, you need:
+Important files:
 
 - `lib/firebase_options.dart`
 - `android/app/google-services.json` for Android builds
-- `.env.local`
 
-The repository already includes:
+Current repo note:
 
-- `.env.github.example`
-- `scripts/flutter-with-env.ps1`
+- `lib/firebase_options.dart` may already be present in your copy of the repo
+- if you want to use a different Firebase project, replace it with your own FlutterFire-generated file
 
-## 9. Local Environment File
+Android note:
+
+- `google-services.json` must match the same Firebase project as `lib/firebase_options.dart`
+- for this app, the Android package name is `com.example.flashchat`
+
+## 5. Local Environment Values
+
+This project uses Dart defines for Supabase and web auth config.
 
 Create a file named:
 
 - `.env.local`
 
-It should contain:
+Example:
 
 ```env
 SUPABASE_URL=
@@ -136,125 +85,260 @@ SUPABASE_CHAT_IMAGE_BUCKET=chat-images
 GOOGLE_WEB_CLIENT_ID=
 ```
 
-This file is ignored by Git and is only for your machine.
+What these are used for:
 
-## 10. Install Project Dependencies
+- `SUPABASE_URL`: Supabase project URL
+- `SUPABASE_ANON_KEY`: public anon key for uploads
+- `SUPABASE_AVATAR_BUCKET`: storage bucket for user and room avatars
+- `SUPABASE_CHAT_IMAGE_BUCKET`: storage bucket for chat images
+- `GOOGLE_WEB_CLIENT_ID`: needed for Google sign-in on supported platforms
 
-In the project folder, run:
+The helper script `scripts/flutter-with-env.ps1` reads this file and passes the values into Flutter automatically.
 
-```bash
-flutter pub get
-```
+## 6. Recommended Run Command
 
-## 11. Run The App Locally
-
-### Windows PowerShell
-
-To run with the environment values from `.env.local`:
+On Windows PowerShell, use:
 
 ```powershell
 .\scripts\flutter-with-env.ps1 run
 ```
 
-### Standard Flutter
+That script will:
 
-If you prefer running Flutter manually, you must pass the same values yourself with `--dart-define`.
+- load `.env.local`
+- verify all required keys are present
+- pass them to Flutter with `--dart-define`
 
-## 12. Build Android Locally
+If `.env.local` is missing or incomplete, the script will stop and show which key is missing.
 
-### Recommended command
+## 7. Run On Android
+
+1. Make sure `android/app/google-services.json` exists
+2. Start an emulator or connect a phone
+3. Check that Flutter sees the device:
+
+```bash
+flutter devices
+```
+
+4. Run the app:
+
+```powershell
+.\scripts\flutter-with-env.ps1 run
+```
+
+If you have multiple devices:
+
+```powershell
+.\scripts\flutter-with-env.ps1 run -d <device-id>
+```
+
+## 8. Run On Windows Desktop
+
+1. Make sure Visual Studio with `Desktop development with C++` is installed
+2. Verify Windows tooling:
+
+```bash
+flutter doctor
+```
+
+3. Run the desktop app:
+
+```powershell
+.\scripts\flutter-with-env.ps1 run -d windows
+```
+
+Important desktop note:
+
+- this project maps desktop Firebase initialization to the web Firebase options in `lib/core/utils/firebase_platform_options.dart`
+- because of that, the Firebase web configuration inside `lib/firebase_options.dart` must also be valid
+
+## 9. First-Run Test Checklist
+
+After the app launches, use this checklist:
+
+1. Sign up with a brand new test account through the app
+2. Confirm login succeeds
+3. Open Firestore and verify these collections begin to appear as the app writes data:
+   - `users`
+   - `usernames`
+   - `rooms`
+4. Create a room
+5. Open the room
+6. Send a text message
+7. If Supabase is configured, try uploading:
+   - a profile avatar
+   - a room avatar
+   - a chat image
+
+Why this matters:
+
+- creating a Firebase Auth user from the Firebase Console does not automatically create the Firestore `users` or `usernames` documents
+- those documents are created by the app flow itself
+
+## 10. Firebase Checks If Something Looks Broken
+
+If the app opens but behavior looks wrong, check these:
+
+### Firestore
+
+Make sure the app can read and write:
+
+- `users`
+- `usernames`
+- `rooms`
+- `rooms/{roomId}/messages`
+- `rooms/{roomId}/members`
+- `app/config`
+
+Important admin config:
+
+- collection: `app`
+- document: `config`
+- field: `roomAdminEmail`
+
+### Realtime Database
+
+Presence and typing depend on Realtime Database.
+
+Expected path:
+
+- `/presence`
+
+If presence is not updating, check that:
+
+- the database URL inside `lib/firebase_options.dart` is correct
+- the signed-in user can write presence data
+
+### Supabase Storage
+
+Media uploads need:
+
+- a valid `SUPABASE_URL`
+- a valid `SUPABASE_ANON_KEY`
+- the buckets from `.env.local` to exist
+
+Expected buckets:
+
+- `avatars`
+- `chat-images`
+
+## 11. Local Build Commands
+
+### Android debug run
+
+```powershell
+.\scripts\flutter-with-env.ps1 run -d android
+```
+
+### Android release APK
 
 ```powershell
 .\scripts\flutter-with-env.ps1 build apk --release
 ```
 
-### Output
+Output:
 
-The APK is created at:
+- `build/app/outputs/flutter-apk/app-release.apk`
 
-`build/app/outputs/flutter-apk/app-release.apk`
-
-## 13. Build Windows Locally
-
-### Recommended command
+### Windows release build
 
 ```powershell
 .\scripts\flutter-with-env.ps1 build windows --release
 ```
 
-### Output
+Output:
 
-The Windows executable bundle is created under:
+- `build/windows/x64/runner/Release/`
 
-`build/windows/x64/runner/Release/`
+## 12. Android Release Signing For Local Release Builds
 
-To share it with another user, compress that folder into a ZIP file.
+You only need this for a properly signed release APK.
 
-## 14. Run Checks Before Publishing
+Required environment variables:
 
-Use:
+- `ANDROID_KEYSTORE_PATH`
+- `ANDROID_KEYSTORE_PASSWORD`
+- `ANDROID_KEY_ALIAS`
+- `ANDROID_KEY_PASSWORD`
+
+Optional strict check:
+
+- `REQUIRE_RELEASE_SIGNING=true`
+
+What happens without them:
+
+- local release builds can fall back to debug signing
+- GitHub Actions is intended to use the real release keystore instead
+
+If you want local release APKs signed exactly like CI, set those environment variables before building.
+
+## 13. Manual Flutter Command Example
+
+If you do not want to use the PowerShell helper script, you must pass every define yourself:
+
+```bash
+flutter run ^
+  --dart-define=SUPABASE_URL=... ^
+  --dart-define=SUPABASE_ANON_KEY=... ^
+  --dart-define=SUPABASE_AVATAR_BUCKET=avatars ^
+  --dart-define=SUPABASE_CHAT_IMAGE_BUCKET=chat-images ^
+  --dart-define=GOOGLE_WEB_CLIENT_ID=...
+```
+
+Using the script is easier and avoids mistakes.
+
+## 14. Useful Validation Commands
 
 ```bash
 flutter analyze
 flutter test
 ```
 
-## 15. GitHub Actions Builds
+Run these before pushing important changes.
 
-This repository includes GitHub Actions workflows for:
+## 15. Common Problems
 
-- build and test
-- Android release publishing
-- Windows release publishing
+### `Missing .env.local`
 
-The required GitHub secrets are documented in:
+Create `.env.local` in the project root and add all required keys.
 
-- `.env.github.example`
-- `docs/CONFIGURATION_AND_SECURITY.md`
+### `Missing 'SUPABASE_URL' in .env.local`
 
-## 16. GitHub Releases Workflow
+The helper script validates the file before starting Flutter. Add the missing key and retry.
 
-To publish a new release:
+### Google sign-in does not work
 
-1. Update `version:` in `pubspec.yaml`
-2. Commit the version change
-3. Create a matching tag:
+Check:
 
-```bash
-git tag v0.1.2
-git push origin v0.1.2
-```
+- `GOOGLE_WEB_CLIENT_ID`
+- Firebase Auth provider setup
+- matching Firebase configuration files
 
-4. GitHub Actions will build:
-   - Android APK
-   - Windows installer `.exe`
-   - Windows portable ZIP
-5. Both files will be attached to the GitHub Release page.
+### App signs in but Firestore collections do not appear
 
-## 17. Troubleshooting
-
-### `Missing FIREBASE_OPTIONS_DART secret`
-
-Add the `FIREBASE_OPTIONS_DART` repository secret in GitHub Actions.
-
-### `Missing GOOGLE_SERVICES_JSON secret`
-
-Add the `GOOGLE_SERVICES_JSON` repository secret in GitHub Actions.
-
-### App builds but some features do not work
-
-Check that `.env.local` contains the required values and that you used the wrapper script or matching `--dart-define` values.
-
-### Windows build fails
-
-Check `flutter doctor` and verify Visual Studio Desktop C++ tools are installed.
+Create the user through the app, not only from Firebase Console.
 
 ### Android build fails
 
 Check:
 
-- Android Studio installation
-- Android SDK
-- local `google-services.json`
-- accepted Android licenses
+- `android/app/google-services.json`
+- Android SDK setup
+- accepted Android SDK licenses
 
+### Windows build fails
+
+Check:
+
+- Visual Studio installation
+- `Desktop development with C++` workload
+- `flutter doctor`
+
+## 16. Related Docs
+
+- [Architecture](ARCHITECTURE_README.md)
+- [Backend](BACKEND_README.md)
+- [Data Model](DATA_MODEL_README.md)
+- [Features](FEATURES_README.md)
+- [Configuration And Security](CONFIGURATION_AND_SECURITY.md)

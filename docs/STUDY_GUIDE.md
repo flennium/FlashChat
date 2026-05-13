@@ -1,94 +1,382 @@
-# FlashChat Explain Guide
+# FlashChat Study Guide
 
-## 1. What This Project Is
+This guide is for understanding, presenting, and defending the FlashChat project.
 
-FlashChat is a room-based real-time chat app built with Flutter.
+## 1. Short Project Summary
 
-The main idea is:
+FlashChat is a room-based real-time chat application built with Flutter.
 
-- users sign in
-- they create or join chat rooms
-- they exchange text and image messages
-- the app shows live updates, typing state, unread counts, and notifications
+Users can:
+
+- create an account
+- join or create rooms
+- send text and image messages
+- react to messages
+- reply to messages
+- mention other users
+- use private rooms with access codes
+- see unread counts, typing indicators, and presence
+
+The app uses Firebase as the main backend and Supabase for media storage and push-delivery infrastructure.
 
 ## 2. One-Minute Explanation
 
-> FlashChat is a Flutter chat app that uses Firebase Authentication for login, Firestore for rooms and messages, Realtime Database for online presence and typing indicators, and Supabase Storage for images. Riverpod is used for state management, and notifications are sent through Firebase Cloud Messaging.
+If you need a short answer:
 
-## 3. Why Each Technology Was Chosen
+> FlashChat is a Flutter chat app that uses Firebase Authentication for login, Cloud Firestore for users, rooms, and messages, Realtime Database for presence and typing, and Supabase Storage for uploaded media. Riverpod manages state on the client, and push notifications are sent through a Supabase Edge Function using Firebase Cloud Messaging.
+
+## 3. Main Goal Of The Project
+
+The goal of FlashChat is not just to send messages. The goal is to build a modern chat app with the kinds of interactive features users expect in real products, such as:
+
+- live updates
+- unread state
+- replies
+- reactions
+- mentions
+- profile customization
+- room privacy
+- push notifications
+
+So this project is a good example of a medium-sized Flutter app with real backend integration, realtime data flow, and platform tradeoffs.
+
+## 4. Technologies Used And Why
 
 ### Flutter
 
+Why it was chosen:
+
 - one codebase for multiple platforms
-- fast UI development
+- fast UI iteration
+- strong widget system for custom chat interfaces
+
+What it gives this project:
+
+- shared Android and Windows UI
+- quick experimentation with custom chat layouts
 
 ### Riverpod
 
+Why it was chosen:
+
 - clean dependency injection
-- reactive UI with providers
-- good for real-time streams
+- simple reactive access to streams and services
+- good fit for auth state, Firestore streams, and action controllers
+
+What it gives this project:
+
+- providers for services
+- stream-based UI updates
+- clearer separation between widgets and logic
 
 ### Firebase Authentication
 
-- easy email and Google sign-in
-- managed sessions
+Why it was chosen:
+
+- fast setup for email/password login
+- built-in session handling
+- optional Google sign-in support
+
+What it gives this project:
+
+- identity
+- session persistence
+- reliable auth state stream
 
 ### Cloud Firestore
 
-- real-time document database
-- good fit for rooms, users, and messages
+Why it was chosen:
 
-### Realtime Database
+- real-time snapshots
+- simple document structure for users, rooms, and messages
+- flexible schema for a project that evolved over time
 
-- better suited for presence and typing updates
+What it gives this project:
+
+- the main persistent data layer
+- real-time room and message streams
+
+### Firebase Realtime Database
+
+Why it was chosen:
+
+- better fit for fast-changing temporary presence data
 - supports `onDisconnect()`
 
-### Firebase Cloud Functions
+What it gives this project:
 
-- legacy server-side approach kept as a reference
-- not required for the current Spark-plan setup
+- online/offline state
+- typing indicators
+- live room online counts
+
+### Firebase Cloud Messaging
+
+Why it was chosen:
+
+- standard push notification system for Firebase-based apps
+
+What it gives this project:
+
+- device token registration
+- push delivery target for room and mention notifications
+
+### Firebase Remote Config
+
+Why it was chosen:
+
+- simple way to change one global announcement without shipping a new app build
+
+### Firebase Crashlytics
+
+Why it was chosen:
+
+- capture runtime crashes on supported platforms
 
 ### Supabase Storage
 
-- easy file storage and public URLs
-- keeps images out of Firestore
+Why it was chosen:
 
-## 4. End-to-End User Flow
+- convenient public file hosting for media uploads
+- keeps raw image files out of Firestore
+
+What it gives this project:
+
+- avatar uploads
+- room avatar uploads
+- chat image uploads
+
+### Supabase Edge Function
+
+Why it was chosen:
+
+- FCM v1 requires OAuth2 access-token generation
+- the client should not contain a Firebase service-account secret
+
+What it gives this project:
+
+- backend push delivery without relying on a full Blaze-plan Firebase Functions setup
+
+## 5. High-Level App Structure
+
+The project is organized like this:
+
+- `lib/models/`
+- `lib/services/`
+- `lib/core/`
+- `lib/features/`
+
+### `models`
+
+Contains the main Dart data models:
+
+- `UserModel`
+- `RoomModel`
+- `MessageModel`
+
+### `services`
+
+Contains backend and platform integrations:
+
+- `AuthService`
+- `FirestoreService`
+- `PresenceService`
+- `StorageService`
+- `FcmService`
+- `RemoteConfigService`
+- `AppBootstrap`
+
+### `core`
+
+Contains shared infrastructure:
+
+- Riverpod providers
+- constants
+- environment access
+- mention parsing utilities
+- platform support checks
+- theme controllers
+
+### `features`
+
+Contains app-specific UI and controllers:
+
+- auth
+- rooms
+- chat
+- profile
+- shell
+
+## 6. Main Backend Responsibilities
+
+### Firebase handles
+
+- authentication
+- users
+- usernames
+- rooms
+- room membership
+- messages
+- unread counters
+- room admin config
+- presence
+- typing indicators
+- remote config announcement
+- crash reporting
+
+### Supabase handles
+
+- storage buckets
+- edge function used to send FCM notifications
+
+## 7. End-To-End User Flow
 
 ### Registration
 
 1. user enters name, email, and password
-2. Firebase creates the auth account
-3. app creates a `users/{uid}` document
-4. app reserves a unique username in `usernames/{username}`
+2. Firebase Auth creates the account
+3. the app creates `users/{uid}`
+4. the app creates `usernames/{username}`
+
+Important note:
+
+- creating a Firebase user manually in Firebase Console does not create the Firestore profile automatically
+- the app flow is what creates the matching documents
 
 ### Login
 
-1. Firebase validates credentials
-2. auth stream updates
-3. app opens `HomeShell`
+1. user signs in
+2. Firebase Auth session becomes active
+3. `SplashScreen` detects the signed-in state
+4. app navigates to `HomeShell`
 
-### Opening the App
+### App startup after login
 
-1. splash screen listens for auth state
-2. if signed in, app loads home
-3. `HomeShell` initializes presence and FCM token registration
+1. `AppBootstrap.initialize()` runs
+2. Firebase initializes
+3. Supabase initializes if environment values are available
+4. presence is initialized where supported
+5. FCM token setup runs where supported
+6. the app loads Rooms / Profile / Settings navigation
 
-### Creating a Room
+### Creating a room
 
-1. user enters room data
-2. app writes a room document
-3. app creates a membership document for the creator
+1. user opens the create room screen
+2. user enters room name, description, privacy mode, and optional access code
+3. user can upload a room avatar
+4. the app writes a room document
+5. the creator is also added to the room members subcollection
 
-### Sending a Message
+### Opening a private room
 
-1. chat controller creates a Firestore message
-2. sender is marked as having read it
-3. the app tries to send notifications to other room members
-4. the app also updates unread counts
-5. if the text contains mentions, the app resolves mentioned users and sends mention notifications through Supabase
+1. the app checks if the user is already a member
+2. if not, it asks for the access code
+3. the latest room data is fetched before validation
+4. membership is created if the code is valid
 
-## 5. Files You Should understand
+### Sending a message
+
+1. the user types in `MessageInput`
+2. the chat controller reads the current user profile
+3. a message document is created in Firestore
+4. the sender is included in `readBy`
+5. the message stream updates the UI
+6. unread tracking and mention targeting logic run through the client-side flow
+
+### Uploading media
+
+1. user picks an image
+2. file bytes upload to Supabase Storage
+3. returned public URL is saved in Firestore
+4. UI reads that URL later
+
+## 8. Core Features You Should Be Able To Explain
+
+### Rooms
+
+- rooms are streamed from Firestore
+- search is filtered locally in the UI
+- private rooms require an access code
+- room details are shown in a room info sheet
+- room cards were redesigned to show less clutter and move detail into the room info flow
+
+### Messages
+
+- real-time Firestore stream
+- pagination using larger message limits
+- replies
+- reactions
+- edit
+- delete for me
+- delete for everyone
+- unread divider
+- date separators
+
+### Mentions
+
+- detects an active mention query while typing
+- shows autocomplete suggestions
+- inserts the selected username into the input
+- highlights mentions in rendered messages
+- resolves mentioned usernames through Firestore
+
+### Presence and typing
+
+- presence stored in Realtime Database
+- typing stored as `typingRoomId`
+- profile status can fall back to recent `lastSeen`
+- room online count is room-scoped, not global
+
+### Notifications
+
+- general room-message notifications
+- mention notifications
+- custom in-app foreground banner
+- suppression when user is already inside the active room
+
+### Settings and profile
+
+- theme mode and theme variants
+- build/version details
+- profile editing
+- avatar upload
+- username changes
+- password change/reset
+- account deletion flow
+
+## 9. Important Design Decisions
+
+These are good design decisions to mention in a presentation:
+
+- using a separate `usernames` collection to enforce unique usernames cleanly
+- using Firestore for main data and Realtime Database for temporary presence
+- storing media in Supabase instead of Firestore
+- denormalizing sender and owner snapshot fields for faster reads
+- grouping logic into services and controllers instead of placing everything in widgets
+- using a room info sheet to reduce clutter in the room list UI
+
+## 10. Why Denormalization Was Used
+
+Some user data is intentionally copied into messages and rooms.
+
+Examples:
+
+- `senderName`
+- `senderUsername`
+- `senderAvatar`
+- `createdByName`
+- `createdByUsername`
+
+Why this helps:
+
+- fewer follow-up reads
+- faster rendering
+- old content keeps the visual context it had when created
+
+Tradeoff:
+
+- profile updates do not automatically rewrite all historical room/message snapshots
+
+## 11. Files You Should Understand First
 
 If you understand these files, you understand most of the project:
 
@@ -99,62 +387,101 @@ If you understand these files, you understand most of the project:
 - `lib/services/firestore_service.dart`
 - `lib/services/presence_service.dart`
 - `lib/services/storage_service.dart`
+- `lib/features/rooms/controllers/room_controller.dart`
 - `lib/features/chat/controllers/chat_controller.dart`
 - `lib/features/chat/screens/chat_screen.dart`
+- `lib/features/chat/widgets/message_input.dart`
 - `supabase/functions/send-notification/index.ts`
-- `functions/README.md`
 
-## 6. Questions And Good Answers
+## 12. Questions You May Be Asked
 
-### "Why did you use Firestore for chat messages?"
+### "Why did you use both Firestore and Realtime Database?"
 
-Because Firestore gives real-time streams and document-based storage, which fits rooms and messages well. It also works nicely with Flutter streams through `snapshots()`.
+Good answer:
 
-### "Why not store images in Firestore?"
+> Firestore is the main structured data store for users, rooms, and messages. Realtime Database is used only for fast-changing temporary state like online presence and typing because it supports `onDisconnect()` and is a better fit for that kind of live signal.
 
-Firestore is for structured data, not raw file storage. Images are uploaded to Supabase Storage, then only their URLs are stored in Firestore.
+### "Why not store images directly in Firestore?"
 
-### "Why use Realtime Database as well as Firestore?"
+Good answer:
 
-Presence and typing status change very frequently. Realtime Database is more suitable for temporary live state and supports automatic offline handling with `onDisconnect()`.
+> Firestore is good for structured documents, not binary file storage. Supabase Storage stores the actual files, while Firestore stores only the resulting public URLs and related metadata.
 
-### "How do unread messages work?"
+### "How do private rooms work?"
 
-Each message has a `readBy` list, and each room member document also has an `unreadCount`. The count is fast for badges, while `readBy` is detailed enough for per-message logic.
+Good answer:
+
+> A room stores `isPrivate` and `accessCode`. When a user tries to enter a private room, the app checks whether the user is already a member. If not, it prompts for the code and validates it against the latest Firestore room data before creating the membership document.
+
+### "How do unread counts work?"
+
+Good answer:
+
+> The app tracks read state at two levels: each message has a `readBy` list, and each room member document stores an `unreadCount`. `readBy` supports message-level logic, while `unreadCount` is faster for room-list badges.
 
 ### "How are mentions implemented?"
 
-The client detects mention text while typing and also parses sent message text for final mention targets. It resolves usernames using the `usernames` collection and sends notifications to valid mentioned users through the Supabase notification backend.
+Good answer:
 
-### "What does Riverpod do here?"
+> The client parses `@username` in two ways: while typing for autocomplete, and after sending for final resolution. Usernames are resolved through the `usernames` collection, and only valid room members are targeted for mention notifications.
 
-Riverpod provides app services, real-time streams, and action controllers. It keeps business logic out of widgets and makes state changes easier to track.
+### "Why are notifications sent through Supabase?"
 
-## 7. Design Decisions
+Good answer:
 
-- storing username reservations in a separate collection for uniqueness
-- keeping avatars and images in Supabase instead of Firestore
-- using Realtime Database for presence
-- using denormalized sender fields in messages for faster UI rendering
-- separating controllers from services
+> The project uses a Supabase Edge Function to send FCM v1 notifications because FCM v1 requires server-side OAuth2 token creation using a Firebase service account. That secret should not be shipped in the client.
 
-## 8. Honest Weaknesses I Admit
+### "What does Riverpod do in this project?"
 
-These are reasonable engineering tradeoffs to mention:
+Good answer:
 
-- notification logic is handled by Flutter plus a Supabase Edge Function
-- moderation is basic and based on a simple banned-word list
-- test coverage is still limited
-- some generated files had to be cleaned from the project directory
+> Riverpod provides services, real-time streams, and action controllers. It lets the UI react to Firebase state cleanly and helps keep widgets smaller by moving actions into controllers and services.
 
-These answers sound informed, not defensive.
+### "What are the current platform tradeoffs?"
 
+Good answer:
 
-## 9. Suggested Reading Order
+> The app is strongest on Android. Windows support exists, but some Firebase live features intentionally degrade where plugin support is limited, such as push notifications and full realtime presence behavior.
+
+## 13. Honest Weaknesses To Admit
+
+These are honest and reasonable tradeoffs to mention:
+
+- notification triggering is still largely client-driven
+- automated test coverage is still lighter than the feature surface
+- desktop support is partial in some realtime areas
+- account deletion and deep cleanup flows are more complex than simple CRUD
+- some backend responsibilities are spread across Flutter logic and the Edge Function instead of living in one authoritative backend layer
+
+These are not project failures. They are useful engineering tradeoffs to acknowledge clearly.
+
+## 14. Strengths Worth Highlighting
+
+Strong points of the project:
+
+- real-time chat with multiple interactive features
+- practical hybrid backend design
+- clean feature grouping in Flutter
+- good use of Firebase products for different workloads
+- meaningful UI polish beyond a basic CRUD app
+- support for richer chat behavior like mentions, replies, and reactions
+
+## 15. Best Reading Order
+
+If you want to study the project efficiently:
 
 1. `README.md`
-2. `docs/ARCHITECTURE_README.md`
-3. `docs/DATA_MODEL_README.md`
-4. `docs/FEATURES_README.md`
-5. `docs/BACKEND_README.md`
-6. read the core files listed in section 5
+2. `docs/SETUP_GUIDE.md`
+3. `docs/ARCHITECTURE_README.md`
+4. `docs/DATA_MODEL_README.md`
+5. `docs/FEATURES_README.md`
+6. `docs/BACKEND_README.md`
+7. then read the core files from section 11
+
+## 16. Framing
+
+A stronger framing is:
+
+> FlashChat is a multi-service real-time Flutter application that combines authentication, room-based messaging, presence, media upload, notifications, and profile management in one cohesive product.
+
+That framing better matches the actual amount of engineering in the project.

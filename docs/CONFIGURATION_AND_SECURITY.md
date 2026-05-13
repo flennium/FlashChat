@@ -1,27 +1,55 @@
 # Configuration And Security
 
+This document explains how FlashChat handles configuration, secrets, ignored files, and release-signing expectations.
+
 ## 1. Purpose
 
-This document explains which configuration values are expected at runtime, which files are intentionally excluded from version control, and what should be checked before publishing or sharing the repository.
+Use this guide to understand:
 
-## 2. Files Not Committed
+- which values must be provided locally
+- which values must be provided in CI
+- which files should stay out of version control
+- which secrets are required for Android release builds
 
-The repository is configured to exclude sensitive or environment-specific files such as:
+## 2. Configuration Sources
 
-- `lib/firebase_options.dart`
+FlashChat reads configuration from several places:
+
+| Source | Used For |
+| --- | --- |
+| `lib/firebase_options.dart` | Firebase client setup |
+| `android/app/google-services.json` | Android Firebase client config |
+| `.env.local` | local Dart define values for development |
+| GitHub Actions secrets | CI-only Firebase config and signing data |
+| Supabase Edge Function secrets | server-side notification delivery |
+| Firestore `app/config` | small runtime admin config |
+
+## 3. Local Development Configuration
+
+For local development, the main non-committed inputs are:
+
 - `android/app/google-services.json`
-- Firebase admin service-account JSON files
-- `functions/node_modules/`
-- local Supabase temp files
-- build outputs and IDE folders
+- `.env.local`
 
-These exclusions are defined in `.gitignore`.
+You may also have a local `lib/firebase_options.dart` depending on your setup.
 
-## 3. Runtime Configuration
+Current repo note:
 
-The app reads environment values from `lib/core/constants/app_env.dart`.
+- `.gitignore` excludes `lib/firebase_options.dart`
+- the file may still exist locally on a developer machine
+- if you switch Firebase projects, regenerate or replace it accordingly
 
-Expected Dart defines:
+The recommended local run path is:
+
+```powershell
+.\scripts\flutter-with-env.ps1 run
+```
+
+That helper script reads `.env.local` and passes the required Dart defines to Flutter automatically.
+
+## 4. Dart Define Values
+
+The app reads these values from `lib/core/constants/app_env.dart`:
 
 - `SUPABASE_URL`
 - `SUPABASE_ANON_KEY`
@@ -29,68 +57,157 @@ Expected Dart defines:
 - `SUPABASE_CHAT_IMAGE_BUCKET`
 - `GOOGLE_WEB_CLIENT_ID`
 
-For publication readiness, the repository now uses empty defaults for the Supabase URL, Supabase anon key, and Google web client id. Those values should be supplied through build-time environment variables or CI secrets.
-
-Tracked setup file:
-
-- `.env.github.example`
-
-Local-only setup file:
+Expected local file:
 
 - `.env.local`
 
+Example:
 
-## 4. Firebase Client Configuration
+```env
+SUPABASE_URL=
+SUPABASE_ANON_KEY=
+SUPABASE_AVATAR_BUCKET=avatars
+SUPABASE_CHAT_IMAGE_BUCKET=chat-images
+GOOGLE_WEB_CLIENT_ID=
+```
 
-The project uses FlutterFire-generated Firebase options and the Android `google-services.json` file during builds.
+Security note:
 
-These files are not committed. They should be restored from secure local copies or GitHub Actions secrets when needed.
+- `SUPABASE_ANON_KEY` is a client-side key, not a service-role secret
+- it still should not be hardcoded unnecessarily in source files
 
-Required CI secrets:
+## 5. Firebase Client Configuration
+
+The app relies on FlutterFire client configuration.
+
+Main files:
+
+- `lib/firebase_options.dart`
+- `android/app/google-services.json`
+
+Important behavior:
+
+- Android uses the Android Firebase config
+- desktop currently reuses the web Firebase options path through `firebase_platform_options.dart`
+
+That means the web configuration inside `lib/firebase_options.dart` must also be valid if you want desktop Firebase behavior to work correctly.
+
+## 6. Ignored Files And Sensitive Files
+
+The following are intentionally excluded by `.gitignore` or should otherwise stay out of version control:
+
+- `lib/firebase_options.dart`
+- `android/app/google-services.json`
+- Firebase admin/service-account JSON files
+- `.env.local`
+- `functions/node_modules/`
+- `supabase/.temp/`
+- build outputs
+- IDE-specific folders
+
+Why:
+
+- these files are environment-specific
+- some contain secrets
+- some are generated locally
+
+## 7. CI / GitHub Actions Secrets
+
+The repository uses GitHub Actions for Android and release workflows.
+
+### Required Firebase secrets
 
 - `FIREBASE_OPTIONS_DART`
 - `GOOGLE_SERVICES_JSON`
 
-Required Android release signing secrets:
+These are typically the raw contents of:
+
+- `lib/firebase_options.dart`
+- `android/app/google-services.json`
+
+### Required Android signing secrets
 
 - `ANDROID_KEYSTORE_BASE64`
 - `ANDROID_KEYSTORE_PASSWORD`
 - `ANDROID_KEY_ALIAS`
 - `ANDROID_KEY_PASSWORD`
 
-The same configuration model is used for:
+Why they matter:
 
-- Android CI builds
-- Android release builds
-- Windows CI builds
-- Windows release builds
-- Windows installer packaging in GitHub Actions
+- Android release builds must always use the same keystore
+- otherwise CI can produce APKs that look like a different signing identity
+- that breaks upgrade continuity and can cause Firebase/App Distribution confusion
 
-Android release workflows are expected to use the same release keystore on every build. If those signing secrets are missing, the workflows should fail rather than fall back to a debug-signed APK.
+Current release expectation:
 
-## 5. Backend Secrets
+- workflows should fail if required signing inputs are missing, rather than silently using the wrong signing path
 
-The Supabase Edge Function for notifications expects:
+## 8. Local Android Release Signing
+
+For local release builds, the Gradle configuration can use:
+
+- `ANDROID_KEYSTORE_PATH`
+- `ANDROID_KEYSTORE_PASSWORD`
+- `ANDROID_KEY_ALIAS`
+- `ANDROID_KEY_PASSWORD`
+
+Optional strict flag:
+
+- `REQUIRE_RELEASE_SIGNING=true`
+
+If these are absent, local release builds may fall back to debug signing unless strict signing is required.
+
+Security note:
+
+- do not commit keystore files
+- do not commit keystore passwords
+- do not paste signing secrets into source-controlled files
+
+## 9. Supabase Secrets
+
+The active notification backend is:
+
+- `supabase/functions/send-notification`
+
+Required backend secret:
 
 - `FIREBASE_SERVICE_ACCOUNT`
 
-This must stay in a secret manager or environment variable and must never be committed to the repository.
+This should contain the Firebase service-account JSON string used to obtain FCM v1 access tokens.
 
-## 6. Public Repository Checklist
+This must:
 
-Before publishing:
+- stay in Supabase secrets or another secret manager
+- never be committed into the repository
+- never be exposed to the Flutter client
 
-1. Confirm no service-account JSON files are present.
-2. Confirm `google-services.json` is not tracked.
-3. Confirm `lib/firebase_options.dart` is not tracked.
-4. Confirm no API tokens or private keys are hardcoded in application source.
-5. Confirm CI is using repository secrets instead of committed config files.
+## 10. Firestore Runtime Config
 
-## 7. Notes About Firebase Web Config
+The app also reads a small amount of operational config from Firestore.
 
-The committed `web/firebase-messaging-sw.js` file uses placeholders rather than a live Firebase web configuration.
+Path:
 
-Before enabling web push in a deployed environment, replace these placeholders with the correct Firebase web app values:
+- collection: `app`
+- document: `config`
+
+Important field:
+
+- `roomAdminEmail`
+
+Purpose:
+
+- allows a configured email address to manage rooms even if that user is not the original creator
+
+Security note:
+
+- this is runtime app configuration, not a secret
+- it should still be changed carefully because it affects moderation/admin behavior
+
+## 11. Web Push Placeholder Config
+
+The committed `web/firebase-messaging-sw.js` file uses placeholder Firebase values.
+
+Before enabling real web push in deployment, replace placeholders such as:
 
 - `__FIREBASE_API_KEY__`
 - `__FIREBASE_AUTH_DOMAIN__`
@@ -99,4 +216,33 @@ Before enabling web push in a deployed environment, replace these placeholders w
 - `__FIREBASE_MESSAGING_SENDER_ID__`
 - `__FIREBASE_APP_ID__`
 
-These are client-side identifiers rather than administrative secrets, but keeping placeholders in the repository reduces accidental publication of environment-specific configuration.
+These are client identifiers rather than admin secrets, but using placeholders in the repo helps prevent accidental publishing of environment-specific values.
+
+## 12. Public Repository Checklist
+
+Before sharing or publishing the repo more broadly, verify:
+
+1. no Firebase service-account JSON files are tracked
+2. no Supabase service-role keys are tracked
+3. `google-services.json` is not tracked
+4. `lib/firebase_options.dart` is not tracked in the public repo state
+5. `.env.local` is not tracked
+6. no keystore file is tracked
+7. no password or token is hardcoded in source
+8. CI uses secrets instead of committed sensitive files
+
+## 13. Practical Security Notes
+
+These are the most important real-world rules for this project:
+
+- treat keystores and service-account JSON files as highly sensitive
+- keep client config and server secrets separate
+- prefer environment variables and secret managers over local plaintext reuse
+- remember that notification delivery depends on a backend secret, not just client code
+- keep signing identity stable across all Android releases
+
+## 14. Related Docs
+
+- [SETUP_GUIDE.md](SETUP_GUIDE.md)
+- [BACKEND_README.md](BACKEND_README.md)
+- [ARCHITECTURE_README.md](ARCHITECTURE_README.md)

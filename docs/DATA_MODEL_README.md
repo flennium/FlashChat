@@ -1,138 +1,164 @@
 # FlashChat Data Model
 
-## 1. Main Collections
+This document explains how FlashChat stores app data across Firestore and Realtime Database, and which Dart models represent that data in the app.
 
-The project mainly uses these Firestore collections:
+## At A Glance
 
-- `users`
-- `usernames`
-- `rooms`
-- `rooms/{roomId}/members`
-- `rooms/{roomId}/messages`
-- `app/config`
+### Firestore
 
-It also uses one Realtime Database path:
+| Path | Purpose |
+| --- | --- |
+| `users/{uid}` | User profile data |
+| `usernames/{username}` | Username reservation and lookup |
+| `rooms/{roomId}` | Room metadata |
+| `rooms/{roomId}/members/{uid}` | Room membership and unread state |
+| `rooms/{roomId}/messages/{messageId}` | Chat messages |
+| `app/config` | Global admin-style app config |
 
-- `presence/{uid}`
+### Realtime Database
 
-## 2. User Model
+| Path | Purpose |
+| --- | --- |
+| `presence/{uid}` | Online state and typing presence |
 
-Firestore path:
+## Dart Models In This Project
 
-- `users/{uid}`
+These are the model classes currently present in `lib/models/`:
 
-Important fields:
+| Model | File | Stored In |
+| --- | --- | --- |
+| `UserModel` | `lib/models/user_model.dart` | `users/{uid}` |
+| `RoomModel` | `lib/models/room_model.dart` | `rooms/{roomId}` |
+| `MessageModel` | `lib/models/message_model.dart` | `rooms/{roomId}/messages/{messageId}` |
 
-- `name`: display name
-- `username`: unique public username
-- `email`: login email
-- `avatarUrl`: profile image URL
-- `fcmToken`: push-notification device token
-- `bio`: user biography
-- `createdAt`: account creation time
-- `lastSeen`: last profile update / activity timestamp
-- `theme`: saved theme preference
-- `notificationsEnabled`: whether push is allowed
-- `blockedUsers`: reserved for future blocking logic
-- `mutedRooms`: list of muted room ids
+Important note:
 
-Model class:
+- there is no dedicated Dart model yet for `room members`, `username reservations`, or `presence`
+- those structures are still important and are documented below because the app reads and writes them directly
 
-- `lib/models/user_model.dart`
+## 1. UserModel
 
-## 3. Username Reservation Model
+**File:** `lib/models/user_model.dart`  
+**Firestore path:** `users/{uid}`
 
-Firestore path:
+### Core fields
 
-- `usernames/{username}`
+| Field | Type | Meaning |
+| --- | --- | --- |
+| `uid` | string | Firestore document id and Auth user id |
+| `name` | string | Display name |
+| `username` | string | Public unique username |
+| `email` | string | Login email |
+| `avatarUrl` | string | Profile image URL |
+| `bio` | string | User bio |
+| `createdAt` | timestamp | Account creation time |
+| `lastSeen` | timestamp? | Last known activity timestamp |
 
-Fields:
+### Settings and notification fields
 
-- `uid`: owner user id
+| Field | Type | Meaning |
+| --- | --- | --- |
+| `theme` | string | Saved theme preference |
+| `notificationsEnabled` | bool | Whether push notifications are allowed |
+| `fcmToken` | string | Device push token |
+| `mutedRooms` | list<string> | Room ids muted by the user |
 
-Why this exists:
+### Moderation / lifecycle fields
 
-- usernames must be unique
-- querying by document id is simpler than scanning `users`
-- mentions can resolve quickly from username to uid
+| Field | Type | Meaning |
+| --- | --- | --- |
+| `isDeleted` | bool | Whether the account was soft-deleted |
+| `deletedAt` | timestamp? | When deletion happened |
+| `blockedUsers` | list<string> | Reserved for blocking logic |
 
-## 4. Room Model
+### App-level computed getters
 
-Firestore path:
+`UserModel` also exposes:
 
-- `rooms/{roomId}`
+- `displayName`
+- `handleLabel`
 
-Important fields:
+These are presentation helpers used by the UI so deleted or incomplete profiles still render safely.
 
-- `name`: room title
-- `description`: room description
-- `createdBy`: owner uid
-- `createdByName`: owner display name snapshot
-- `createdByUsername`: owner username snapshot
-- `isPrivate`: whether join requires access code
-- `accessCode`: room join code if private
-- `avatarUrl`: room image URL
-- `pinnedMessage`: room-level pinned message
-- `memberCount`: cached number of members
-- `createdAt`: room creation time
+## 2. RoomModel
 
-Model class:
+**File:** `lib/models/room_model.dart`  
+**Firestore path:** `rooms/{roomId}`
 
-- `lib/models/room_model.dart`
+### Core fields
 
-Notes:
+| Field | Type | Meaning |
+| --- | --- | --- |
+| `id` | string | Room document id |
+| `name` | string | Room name |
+| `description` | string | Room description |
+| `createdBy` | string | Owner uid |
+| `createdAt` | timestamp | Room creation time |
 
-- `createdByName` and `createdByUsername` are denormalized snapshots
-- this avoids extra lookups when showing owner information
+### Access and identity fields
 
-## 5. Room Member Model
+| Field | Type | Meaning |
+| --- | --- | --- |
+| `isPrivate` | bool | Whether the room needs an access code |
+| `accessCode` | string | Private-room code |
+| `avatarUrl` | string | Room avatar URL |
+| `createdByName` | string | Owner display-name snapshot |
+| `createdByUsername` | string | Owner username snapshot |
 
-Firestore path:
+### Room state fields
 
-- `rooms/{roomId}/members/{uid}`
+| Field | Type | Meaning |
+| --- | --- | --- |
+| `pinnedMessage` | string | Room-level pinned text |
+| `memberCount` | int | Cached member count |
 
-Important fields:
+### App-level helpers
 
-- `joinedAt`: when the user joined the room
-- `lastReadAt`: last time the room was marked read
-- `unreadCount`: unread-message counter for that user in that room
+`RoomModel` also exposes:
 
-This subcollection determines membership.
+- `ownerLabel`
+- `copyWith(...)`
 
-If a member document exists, that user belongs to the room.
+The owner snapshot fields are intentionally denormalized so room cards and room info screens can show owner information without additional lookups.
 
-## 6. Message Model
+## 3. MessageModel
 
-Firestore path:
+**File:** `lib/models/message_model.dart`  
+**Firestore path:** `rooms/{roomId}/messages/{messageId}`
 
-- `rooms/{roomId}/messages/{messageId}`
+### Core message fields
 
-Important fields:
+| Field | Type | Meaning |
+| --- | --- | --- |
+| `id` | string | Message document id |
+| `text` | string | Message text |
+| `imageUrl` | string | Optional uploaded image |
+| `senderId` | string | Sender uid |
+| `senderName` | string | Sender display-name snapshot |
+| `senderUsername` | string | Sender username snapshot |
+| `senderAvatar` | string | Sender avatar snapshot |
+| `timestamp` | timestamp | Message creation time |
 
-- `text`: message text
-- `imageUrl`: optional image URL
-- `senderId`: author uid
-- `senderName`: display-name snapshot
-- `senderUsername`: username snapshot
-- `senderAvatar`: avatar snapshot
-- `timestamp`: message creation time
-- `isDeleted`: whether content has been deleted for everyone
-- `isEdited`: whether message text was edited
-- `editedAt`: edit timestamp
-- `deletedFor`: per-user soft-delete list
-- `reactions`: emoji to list-of-user-ids map
-- `readBy`: list of users who have read the message
-- `replyTo`: embedded reply metadata
+### Edit and deletion fields
 
-Model class:
+| Field | Type | Meaning |
+| --- | --- | --- |
+| `isDeleted` | bool | Whether the message was deleted for everyone |
+| `isEdited` | bool | Whether the message text was edited |
+| `editedAt` | timestamp? | Edit time |
+| `deletedFor` | list<string> | Users who hid the message locally |
 
-- `lib/models/message_model.dart`
+### Realtime interaction fields
 
-## 7. Reply Data Structure
+| Field | Type | Meaning |
+| --- | --- | --- |
+| `reactions` | map<string, list<string>> | Emoji -> user ids |
+| `readBy` | list<string> | Users who have read the message |
+| `replyTo` | map<string, dynamic>? | Embedded reply preview data |
 
-`replyTo` is stored directly inside a message document.
+### `replyTo` structure
 
-Expected structure:
+When a message is a reply, the embedded payload typically contains:
 
 - `id`
 - `senderId`
@@ -141,90 +167,146 @@ Expected structure:
 - `text`
 - `imageUrl`
 
-Why embed it:
+This is stored inline so reply previews still work even if the original message changes later.
 
-- reply preview still works even if the original message changes later
-- no extra fetch is required to render a reply bubble
+## 4. Stored Structures Without Dedicated Dart Models
 
-## 8. Realtime Database Presence Model
+These are still part of the real data model even though they are not separate classes in `lib/models/`.
 
-Realtime Database path:
+### Username reservation
 
-- `presence/{uid}`
+**Firestore path:** `usernames/{username}`
 
-Fields:
+| Field | Type | Meaning |
+| --- | --- | --- |
+| `uid` | string | Owner of that username |
 
-- `online`: boolean
-- `typingRoomId`: room id currently being typed in
-- `username`: latest username snapshot
+Why it exists:
 
-This data is temporary and presence-oriented, not long-term business data.
+- usernames must be unique
+- fast lookup from `@username` to `uid`
+- easier mention resolution
 
-## 9. Remote Config Model
+### Room member entry
 
-Remote Config key:
+**Firestore path:** `rooms/{roomId}/members/{uid}`
 
-- `global_pinned_message`
+| Field | Type | Meaning |
+| --- | --- | --- |
+| `joinedAt` | timestamp | When the user joined |
+| `lastReadAt` | timestamp | Last room-read timestamp |
+| `unreadCount` | int | Cached unread counter for room list badges |
 
-The app fetches this value and can display it as a global announcement banner.
+This structure decides room membership. If the member document exists, that user belongs to the room.
 
-## 10. Denormalization Strategy
+### Presence entry
 
-The project intentionally duplicates some user data inside room and message documents.
+**Realtime Database path:** `presence/{uid}`
+
+| Field | Type | Meaning |
+| --- | --- | --- |
+| `online` | bool | Whether the user is online |
+| `typingRoomId` | string | Room currently being typed in |
+| `username` | string | Latest username snapshot |
+
+This data is transient and presence-oriented, not long-term business data.
+
+### App config entry
+
+**Firestore path:** `app/config`
+
+Common field used by the app:
+
+| Field | Type | Meaning |
+| --- | --- | --- |
+| `roomAdminEmail` | string | Email allowed to manage rooms globally |
+
+## 5. Denormalization Strategy
+
+FlashChat intentionally duplicates some profile data into other documents.
 
 Examples:
 
-- `senderName`
-- `senderUsername`
-- `senderAvatar`
-- `createdByName`
-- `createdByUsername`
+- `rooms.createdByName`
+- `rooms.createdByUsername`
+- `messages.senderName`
+- `messages.senderUsername`
+- `messages.senderAvatar`
 
-Why this is useful:
+Why this helps:
 
-- chat UIs need fast reads
-- fewer joins are needed
-- old messages keep the display context they were created with
+- chat screens render faster
+- fewer follow-up reads are needed
+- old messages keep the sender context they were created with
 
 Tradeoff:
 
-- updates to the source profile do not automatically rewrite all old messages
+- updating a user profile does not automatically rewrite every historical room or message document
 
-## 11. Read/Unread Logic
+## 6. Read And Unread Tracking
 
-Unread state is tracked in two places:
+Unread state is stored in two layers:
 
-- message-level `readBy`
-- member-level `unreadCount`
+### Message level
 
-Purpose of each:
+- `messages.readBy`
 
-- `readBy` supports fine-grained read state per message
-- `unreadCount` supports fast badge display in room lists
+Used for:
 
-This is a common chat optimization pattern.
+- per-message read logic
+- deciding which messages are unread
 
-## 12. Notification-Related Data
+### Membership level
 
-Push-related fields:
+- `members.unreadCount`
+- `members.lastReadAt`
+
+Used for:
+
+- fast room-list unread badges
+- efficient “mark room as read” behavior
+
+This is a common denormalized chat pattern.
+
+## 7. Notifications And Delivery Data
+
+Push-related data is mostly driven by the user profile plus message context.
+
+Relevant fields:
 
 - `users/{uid}.fcmToken`
 - `users/{uid}.notificationsEnabled`
-- message text, sender info, and room id in payloads
+- message sender snapshot fields
+- room id carried in notification payloads
 
-Notification payload data commonly includes:
+Common payload metadata:
 
 - `roomId`
 - `type`
 
-## 13. Security-Relevant Relationships
+## 8. Model Relationships
 
-Important access rules:
+Here is the main relationship flow:
 
-- signed-in users can read app data
-- users can write only their own user document
-- room creators or configured room admins can manage rooms
-- message creation requires `senderId == request.auth.uid`
-- message edits are limited to the sender, plus read/reaction-only shared updates
+1. Firebase Auth creates the authenticated identity
+2. `users/{uid}` stores the profile
+3. `usernames/{username}` maps public usernames back to a uid
+4. `rooms/{roomId}` stores room metadata
+5. `rooms/{roomId}/members/{uid}` stores room membership and unread state
+6. `rooms/{roomId}/messages/{messageId}` stores chat history
+7. `presence/{uid}` stores temporary online and typing state
 
-Read `firestore.rules` together with this data model.
+## 9. Security-Relevant Notes
+
+Important access expectations in this data model:
+
+- users should only edit their own user profile
+- room creators or configured room admins manage rooms
+- message creation should match `request.auth.uid`
+- reaction and read-state writes are narrower than full message edits
+
+To understand enforcement details, read this document together with:
+
+- `firestore.rules`
+- `realtime database rules` in Firebase console
+- [CONFIGURATION_AND_SECURITY.md](CONFIGURATION_AND_SECURITY.md)

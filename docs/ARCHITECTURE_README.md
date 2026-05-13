@@ -1,127 +1,234 @@
 # FlashChat Architecture
 
-## 1. Purpose
+FlashChat is a Flutter chat app with a practical feature-based client architecture and a hybrid Firebase + Supabase backend.
 
-FlashChat is a real-time chat application built with Flutter. Its goal is to provide room-based messaging with modern social features such as replies, reactions, typing indicators, unread counts, mentions, avatars, and push notifications.
+This document explains how the app is organized today and how data and actions move through the system.
 
-The project uses a hybrid backend:
+## 1. High-Level Architecture
 
-- Firebase Authentication for login and identity
-- Cloud Firestore for main app data
-- Firebase Realtime Database for live presence
+FlashChat is built around these major parts:
+
+- Flutter client for UI and app logic
+- Firebase Auth for identity
+- Cloud Firestore for persistent app data
+- Firebase Realtime Database for presence and typing
 - Firebase Remote Config for a global announcement
-- Firebase Cloud Messaging for push delivery
-- Supabase Edge Function for push delivery logic
-- Supabase Storage for uploaded images
+- Firebase Cloud Messaging for device notification delivery
+- Supabase Storage for uploaded media
+- Supabase Edge Function for FCM v1 push sending
 
-## 2. High-Level Structure
+## 2. Repository Structure
 
-The project is split into these main areas:
+| Area | Purpose |
+| --- | --- |
+| `lib/` | Main Flutter application |
+| `lib/features/` | Feature-specific screens, controllers, and widgets |
+| `lib/services/` | Firebase, Supabase, and device-facing service layer |
+| `lib/models/` | Main Dart models |
+| `lib/core/` | Providers, constants, utilities, and theming |
+| `supabase/functions/` | Active Edge Function backend |
+| `functions/` | Legacy Firebase Functions reference |
+| `docs/` | Project documentation |
 
-- `lib/`: Flutter client application
-- `functions/`: legacy Firebase Cloud Functions reference
-- `supabase/functions/send-notification/`: Supabase Edge Function for FCM v1 delivery
-- `assets/branding/`: app images and logos
-- `test/`: unit and widget tests
-- `docs/`: project documentation
+## 3. Client Structure
 
-## 3. Client Architecture
+The client is not organized as strict clean architecture. It uses a simpler flow that matches the current size of the app:
 
-The Flutter app follows a lightweight layered structure:
+- widgets and screens render UI
+- controllers perform actions
+- services talk to Firebase, Supabase, and device APIs
+- models map Firestore documents into Dart objects
 
-- `models/`: plain Dart models for users, rooms, and messages
-- `services/`: direct integrations with Firebase, Supabase, and device APIs
-- `core/`: constants, providers, theme, and reusable utilities
-- `features/`: UI and state per app feature
+Current design strengths:
 
-This is not a strict clean architecture project with repositories and use cases. Instead, it uses a practical structure:
+- easy to trace from UI to backend call
+- lightweight enough for a student/project-scale app
+- real-time streams stay close to where the UI needs them
 
-- UI widgets call controllers
-- controllers call services
-- services talk to Firebase/Supabase
-- models convert Firestore maps into Dart objects
+Tradeoff:
 
-## 4. State Management
+- business logic is spread across the client instead of being centralized in a deep domain layer
 
-The app uses Riverpod.
+## 4. Main Layers
 
-Main Riverpod patterns in this project:
+### `models`
 
-- `Provider`: for singleton-style services such as `AuthService` and `FirestoreService`
-- `StreamProvider`: for real-time Firestore/Auth/Presence streams
-- `FutureProvider`: for one-shot async loads such as Remote Config
-- `StateProvider`: for local app state such as active room id or pagination limits
-- `StateNotifierProvider`: for controllers that perform actions like sign-in or sending a message
+Current model classes:
 
-This keeps UI code relatively thin and makes dependencies easy to access with `ref.read(...)` and `ref.watch(...)`.
+- `UserModel`
+- `RoomModel`
+- `MessageModel`
 
-## 5. App Startup Flow
+These are plain Dart data models with `fromMap` / `toMap` style conversions.
 
-Startup path:
+### `services`
 
-1. `main.dart` initializes Flutter bindings.
-2. Background FCM handler is registered.
-3. `AppBootstrap.initialize()` runs.
-4. Firebase is initialized.
-5. Supabase is initialized if credentials are available.
-6. Crashlytics hooks are registered.
-7. `ProviderScope` wraps the app.
-8. `FlashChatApp` loads theme state and opens `SplashScreen`.
+This is the backend integration layer.
 
-`SplashScreen` listens to Firebase Auth state:
+Examples:
 
-- if a user is signed in, it navigates to `HomeShell`
-- otherwise it navigates to `LoginScreen`
+- `AuthService`
+- `FirestoreService`
+- `PresenceService`
+- `StorageService`
+- `FcmService`
+- `RemoteConfigService`
 
-## 6. Navigation Structure
+### `core`
 
-The main in-app container is `HomeShell`.
+Holds app-wide infrastructure such as:
 
-It shows three top-level sections:
+- Riverpod providers
+- constants and environment access
+- mention utilities
+- platform support checks
+- theme controllers
+
+### `features`
+
+UI and interaction logic is grouped by app feature:
+
+- auth
+- rooms
+- chat
+- profile
+- shell
+
+## 5. State Management
+
+The app uses Riverpod throughout the client.
+
+Current patterns:
+
+- `Provider` for services
+- `StreamProvider` for live data
+- `FutureProvider` for one-shot async loads
+- `StateProvider` for lightweight local shared state
+- `StateNotifierProvider` for action-oriented controllers
+
+Examples:
+
+- `authStateProvider`
+- `currentUserProfileProvider`
+- `roomListProvider`
+- `roomMessagesProvider`
+- `chatControllerProvider`
+- `roomOnlineCountProvider`
+
+This gives the app a strong reactive flow without introducing a larger framework than needed.
+
+## 6. App Startup Flow
+
+The startup path is:
+
+1. `main.dart` initializes Flutter bindings
+2. background FCM handling is registered where supported
+3. `AppBootstrap.initialize()` runs
+4. Firebase initializes
+5. Supabase initializes if config exists
+6. Crashlytics hooks are installed on supported platforms
+7. the app starts inside `ProviderScope`
+
+Routing flow:
+
+- `SplashScreen` observes auth state
+- signed-in users go to `HomeShell`
+- signed-out users go to `LoginScreen`
+
+## 7. Navigation Structure
+
+`HomeShell` is the main signed-in container.
+
+Top-level sections:
 
 - Rooms
 - Profile
 - Settings
 
-From Rooms, the user can:
+Navigation patterns:
 
-- browse rooms
-- search rooms
-- create a room
-- join/open a room
+- room list pushes `ChatScreen`
+- create/edit room flows use `CreateRoomScreen`
+- room and user details open in sheets/modals
 
-Opening a room pushes `ChatScreen`.
+This keeps the main app structure shallow and easy to follow.
 
-## 7. Data Flow Example: Sending a Message
+## 8. Room Architecture
 
-When a user sends text:
+Room features are split across:
 
-1. `MessageInput` triggers the chat controller.
-2. `ChatController.sendText(...)` loads the current profile.
-3. It calls `FirestoreService.sendMessage(...)`.
-4. A message document is created in `rooms/{roomId}/messages/{messageId}`.
-5. The sender is added to `readBy`.
-6. After success, the app attempts to send push notifications.
-7. It collects room-member FCM tokens except the sender.
-8. It calls the Supabase Edge Function `send-notification`.
-9. The app updates unread counters and resolves mention targets in its own logic.
+- room list screen
+- create/edit room screen
+- room tile UI
+- room info sheet
+- room controller
 
-This means the active push flow is:
+Current room flow:
 
-- normal room-message notifications are triggered by the Flutter client through Supabase
-- mention notifications are also triggered by the Flutter client through Supabase
+1. rooms stream from Firestore
+2. room list filters locally in the UI
+3. selecting a room checks membership and private-room access
+4. joining a room writes membership data into Firestore
+5. opening a room pushes the chat screen
 
-## 8. Presence and Live UX
+Important design choice:
 
-Presence is handled with Firebase Realtime Database instead of Firestore.
+- room cards are intentionally lighter now
+- extra room metadata lives in the room info sheet and the chat header entry point
 
-Why:
+## 9. Chat Architecture
 
-- presence updates change often
-- RTDB is cheaper and more natural for online status
-- it supports `onDisconnect()`, which is useful for marking a user offline automatically
+The chat feature is the most real-time-heavy part of the app.
 
-Presence node stores:
+Main pieces:
+
+- `ChatScreen`
+- `ChatController`
+- `MessageInput`
+- `MessageBubble`
+
+Current responsibilities:
+
+- live message stream
+- pagination
+- reply handling
+- reactions
+- read tracking
+- typing updates
+- room-scoped online count
+
+The chat screen combines multiple live data sources:
+
+- Firestore messages
+- Firestore room data
+- Realtime Database presence
+- local reply state
+- local pagination state
+
+## 10. Data Flow Example: Sending A Message
+
+Current send-text flow:
+
+1. the user types into `MessageInput`
+2. `ChatController.sendText(...)` is called
+3. the current user profile is read from Riverpod
+4. `FirestoreService.sendMessage(...)` writes the message document
+5. the sender is included in the initial `readBy`
+6. the UI refreshes automatically from the Firestore stream
+
+If the message is a reply:
+
+- a compact `replyTo` snapshot is embedded into the message document
+
+If the message contains mentions:
+
+- mention parsing and notification targeting are resolved through client-side logic plus Firestore lookup helpers
+
+## 11. Presence And Live Interaction
+
+Presence is intentionally separated from Firestore.
+
+Current Realtime Database usage:
 
 - `online`
 - `typingRoomId`
@@ -129,52 +236,59 @@ Presence node stores:
 
 This powers:
 
-- online counter
-- typing indicator
-- username-aware typing labels
+- online status in profiles
+- room-scoped chat online count
+- typing indicator labels
 
-## 9. Notification Design
+Important platform behavior:
 
-There are two notification categories:
+- desktop platforms intentionally avoid some live features where Firebase plugin support is limited
+- profile UI falls back to recent `lastSeen` for better status wording
 
-### Client-triggered room notifications
+## 12. Notification Architecture
 
-Used for general room messages.
+Notifications are not driven by a full server-triggered backend pipeline right now.
 
-- The sender app gathers FCM tokens of other room members.
-- It calls the Supabase Edge Function.
-- The Edge Function sends FCM v1 requests to Google.
+Current notification path:
 
-### Client-triggered mention notifications
+1. the Flutter client decides which users should be notified
+2. it collects FCM tokens from Firestore
+3. it calls the Supabase Edge Function
+4. the Edge Function sends FCM v1 notifications
 
-Used when a message contains `@username`.
+This supports:
 
-- The Flutter app parses the text.
-- It resolves usernames through Firestore.
-- It sends mention notifications only to mentioned users who are room members.
+- room-message notifications
+- mention notifications
 
-### Foreground suppression
+Foreground UX:
 
-When the app is already open in a room, the active room id is tracked in Riverpod.
+- a custom banner is shown in-app
+- banners are suppressed if the user is already inside the active room
 
-If a foreground push arrives for the same room:
+Tradeoff:
 
-- the custom in-app banner is suppressed
-- the user still sees the message directly in chat
+- the design is simple and cost-friendly
+- it is less authoritative than a fully backend-triggered system
 
-## 10. Media Handling
+## 13. Media Architecture
 
-Supabase Storage is used only for uploaded media:
+Supabase Storage handles file uploads.
+
+Current upload types:
 
 - user avatars
 - room avatars
 - chat images
 
-Firestore stores only the resulting public URLs, not the file bytes.
+Architecture choice:
 
-This keeps Firestore focused on structured data while storage handles files.
+- binary files stay out of Firestore
+- Firestore stores only public URLs and metadata
 
-## 11. Theme System
+This keeps the structured data layer focused and easier to reason about.
+
+## 14. Theme And Appearance Architecture
 
 The app supports:
 
@@ -183,48 +297,70 @@ The app supports:
 - system mode
 - multiple color variants
 
-Theme preferences are stored locally with `SharedPreferences`.
+These are managed through small dedicated controllers in `lib/core/theme/`.
 
-## 12. Backend Responsibilities Split
+Persistence:
 
-Firebase handles:
+- theme choices are stored locally, not in Firestore
 
-- auth
-- structured app data
+## 15. Platform Support Strategy
+
+The app does not treat every platform identically.
+
+Examples:
+
+- push notifications are primarily mobile/web oriented
+- Crashlytics is mobile-focused
+- desktop Firebase initialization reuses the web Firebase options path
+- some live presence features are intentionally reduced on desktop
+
+This is a pragmatic compatibility strategy rather than a perfectly uniform one.
+
+## 16. Backend Responsibility Split
+
+### Firebase handles
+
+- identity
+- app data
 - presence
-- config
+- remote config
+- push token registration
 - crash reporting
 
-Supabase handles:
+### Supabase handles
 
-- file storage
-- custom notification edge function
+- media storage
+- FCM v1 transport through the Edge Function
 
-This split is unusual but valid. It works because each service is used for a focused purpose.
+This split is deliberate:
 
-## 13. Strengths of the Current Architecture
+- Firebase remains the main application backend
+- Supabase is used where it adds value without replacing the whole stack
 
-- Simple to follow once services are understood
-- Good use of real-time streams for chat
-- Clear separation between models, services, and screens
-- Presence is implemented with the right Firebase product
-- Media is kept out of Firestore
+## 17. Current Architectural Strengths
 
-## 14. Limitations and Tradeoffs
+- straightforward feature-based organization
+- clear real-time data flow using Riverpod streams
+- practical split between persistent data and ephemeral presence
+- good separation between structured data and uploaded media
+- simple enough to onboard quickly
 
-- Business logic is distributed between Flutter and Supabase
-- General push notifications are client-triggered, which is simpler but less authoritative than a full server-driven design
-- Some generated/config files were mixed into the project directory before cleanup
-- There is no Git repository metadata in this folder, so change history is not available
+## 18. Current Architectural Tradeoffs
 
-## 15. Files to Read First
+- some important backend behavior is still client-triggered
+- business rules are distributed across services and controllers
+- desktop support is intentionally partial in some realtime areas
+- notification authority and cleanup logic are not as centralized as they would be in a larger production backend
 
-If you want to understand the architecture quickly, read these in order:
+## 19. Suggested Reading Order
+
+If you want to understand the app quickly, read these files in this order:
 
 1. `lib/main.dart`
 2. `lib/services/app_bootstrap.dart`
 3. `lib/core/providers/app_providers.dart`
 4. `lib/services/firestore_service.dart`
-5. `lib/features/chat/controllers/chat_controller.dart`
-6. `supabase/functions/send-notification/index.ts`
-7. `functions/README.md`
+5. `lib/services/presence_service.dart`
+6. `lib/features/rooms/controllers/room_controller.dart`
+7. `lib/features/chat/controllers/chat_controller.dart`
+8. `supabase/functions/send-notification/index.ts`

@@ -1,36 +1,47 @@
 # FlashChat Features
 
+This document describes the user-facing features currently implemented in FlashChat and how they behave in the live app.
+
 ## 1. Authentication
 
 Supported sign-in methods:
 
-- email + password
-- Google Sign-In
+- email and password
+- Google Sign-In on supported platforms
 
-Relevant files:
+Current platform note:
+
+- Google Sign-In is available on mobile and web-oriented setups
+- Windows users primarily rely on email/password
+
+Current behavior:
+
+- creating an account through the app also creates a Firestore user profile
+- each user gets a username record in `usernames/{username}`
+- first-time Google sign-in also creates the matching profile data
+
+Main files:
 
 - `lib/services/auth_service.dart`
-- `lib/features/auth/controllers/auth_controller.dart`
 - `lib/features/auth/screens/login_screen.dart`
 - `lib/features/auth/screens/register_screen.dart`
+- `lib/features/auth/controllers/auth_controller.dart`
 
-Important behavior:
+## 2. Startup And Session Flow
 
-- a Firestore profile is created automatically for new users
-- each new user also gets a unique username
-- if Google sign-in creates a first-time user, a profile document is also created
-- on Windows, the app uses email authentication only and hides Google Sign-In
+The app starts in `SplashScreen` and then routes based on Firebase Auth state.
 
-## 2. Splash and Session Handling
+Behavior:
 
-The app opens on `SplashScreen`.
+- signed-in users are sent to `HomeShell`
+- signed-out users are sent to `LoginScreen`
+- app services are initialized in `AppBootstrap`
 
-What it does:
+Main files:
 
-- listens to Firebase Auth
-- waits briefly for branding/smooth startup
-- sends signed-in users to `HomeShell`
-- sends signed-out users to `LoginScreen`
+- `lib/main.dart`
+- `lib/services/app_bootstrap.dart`
+- `lib/features/auth/screens/splash_screen.dart`
 
 ## 3. Rooms
 
@@ -39,199 +50,282 @@ Users can:
 - browse all rooms
 - search rooms by name or description
 - create rooms
-- edit owned/admin rooms
+- edit rooms they own
+- edit rooms if their email matches the configured room admin email
+- delete owned/admin rooms
 - join private rooms with an access code
 
-Room list logic:
+Room design notes:
 
-- rooms stream from Firestore in real time
-- UI filters the list locally using the search query
+- room cards show a simplified overview
+- extra room information lives in a dedicated room info sheet
+- room details can be opened from the room list and from the chat header
 
-Private room logic:
+Private room behavior:
 
-- room stores `isPrivate`
-- room stores `accessCode`
-- join is rejected if the code does not match
+- private rooms store `isPrivate` and `accessCode`
+- users who are already members can open the room without re-entering the code
+- access-code errors are handled inline in the dialog
 
-## 4. Messaging
+Main files:
 
-Supported message types:
+- `lib/features/rooms/screens/room_list_screen.dart`
+- `lib/features/rooms/screens/create_room_screen.dart`
+- `lib/features/rooms/widgets/room_tile.dart`
+- `lib/features/rooms/widgets/room_info_sheet.dart`
+- `lib/features/rooms/controllers/room_controller.dart`
+
+## 4. Room Avatars
+
+Rooms can have custom avatars.
+
+Behavior:
+
+- room creators/admins can upload a room avatar
+- room avatars appear on room cards, room info sheets, and the chat header
+- private rooms also display a lock badge
+
+Media is uploaded through Supabase Storage and the public URL is saved in Firestore.
+
+## 5. Messaging
+
+Supported message content:
 
 - text messages
 - image messages
 
-Messaging behavior:
+Current chat behavior:
 
 - messages stream live from Firestore
-- newest messages are loaded with `limitToLast(...)`
-- older messages load on scroll
-- pagination increases the query limit
+- newest messages load first
+- older messages load as the user scrolls up
+- the chat view restores scroll position when older messages are loaded
 
-Extra message features:
+Chat UI features:
 
-- edit message text
+- date separators
+- unread divider
+- reply preview
+- message grouping
+- timestamp reveal
+- scroll-to-bottom action
+
+Main files:
+
+- `lib/features/chat/screens/chat_screen.dart`
+- `lib/features/chat/widgets/message_input.dart`
+- `lib/features/chat/widgets/message_bubble.dart`
+- `lib/features/chat/controllers/chat_controller.dart`
+
+## 6. Message Actions
+
+Users can:
+
+- edit their own message text
 - delete for everyone
 - delete for me
-- reply to a specific message
-- emoji reactions
-- unread divider
-- date separators
+- reply to a message
+- react with emoji
 
-## 5. Read State
+Current behavior:
 
-When a room is open:
+- edits mark the message as edited
+- delete-for-everyone clears visible content but keeps the message shell
+- delete-for-me uses per-user soft deletion
+- replies store an embedded reply snapshot
 
-- the screen watches room messages
-- unread messages are detected
-- `markRead(...)` updates both message `readBy` lists and the member unread counter
-
-User-facing results:
-
-- unread counts on rooms
-- unread divider inside chat
-
-## 6. Typing Indicators
-
-Typing is tracked with Realtime Database presence.
-
-Behavior:
-
-- when the user starts/stops typing, `typingRoomId` is updated
-- other users subscribed to presence see matching typing-room entries
-- the chat screen shows a typing indicator near the input
-
-## 7. Online Presence
-
-Presence is initialized in `HomeShell`.
-
-Behavior:
-
-- signed-in user is marked online
-- `onDisconnect()` marks the user offline automatically
-- the app can display an online count
-- the Windows build skips presence because the current desktop runner does not include the Realtime Database plugin
-
-## 8. Mentions
+## 7. Mentions
 
 Users can mention others with `@username`.
 
-Mention support exists in two layers:
+Current mention behavior:
 
-### Client-side parsing
+- the input detects an active mention query while typing
+- a small autocomplete list appears under the input
+- selecting a suggestion inserts the username directly into the text
+- chat bubbles render mentions in styled text
 
-The app detects:
+Notification behavior:
 
-- mentions already present in text
-- an active mention query while the user is typing
+- the app resolves mentioned usernames through Firestore
+- only valid room members are targeted for mention notifications
 
-This supports autocomplete and better text handling.
+Main files:
 
-### Mention notification targeting
+- `lib/core/utils/mention_utils.dart`
+- `lib/features/chat/widgets/message_input.dart`
+- `lib/features/chat/widgets/message_bubble.dart`
+- `lib/services/firestore_service.dart`
 
-The app resolves mentioned usernames through Firestore and notifies only valid mentioned room members.
+## 8. Read State And Unread Counts
 
-## 9. Push Notifications
+Unread state is visible in two places:
 
-There are two kinds of push notifications:
+- room list unread badges
+- unread divider inside a chat
 
-- room-message notifications
+Current behavior:
+
+- when a room is open, unread messages are detected
+- `markRead(...)` updates both per-message `readBy` data and room-member unread data
+- room cards read their badge count from member unread data
+
+## 9. Presence, Online Status, And Typing
+
+Presence uses Firebase Realtime Database.
+
+Current live features:
+
+- online/offline state
+- typing room tracking
+- room-scoped online count in the chat header
+- profile modal status pills
+
+Platform note:
+
+- desktop avoids full RTDB live-signal behavior where the platform support is limited
+- recent `lastSeen` is used as a fallback for profile activity wording
+
+Main files:
+
+- `lib/services/presence_service.dart`
+- `lib/features/shell/screens/home_shell.dart`
+- `lib/features/chat/widgets/online_indicator.dart`
+- `lib/features/chat/widgets/typing_indicator.dart`
+- `lib/features/profile/widgets/user_profile_modal.dart`
+
+## 10. Notifications
+
+FlashChat currently supports:
+
+- general room-message notifications
 - mention notifications
 
-Room-message notifications:
+Current flow:
 
-- triggered by the sender client
-- sent through the Supabase Edge Function
-
-Mention notifications:
-
-- triggered by the Flutter client after resolving mentioned users
-- sent through the Supabase Edge Function
+- the Flutter client gathers eligible FCM tokens
+- it calls the Supabase Edge Function
+- the Edge Function sends FCM v1 requests
 
 Foreground behavior:
 
-- the app shows a custom notification banner
-- if the user is already inside the same room, the banner is suppressed
-- the Windows build skips push notifications because Firebase Messaging is not part of the desktop runner setup
+- the app shows a custom in-app banner for incoming notifications
+- banners are suppressed if the user is already inside the same room
 
-## 10. Media Uploads
+Platform note:
+
+- push notifications are not treated as a primary desktop feature in the current setup
+
+## 11. Media Uploads
 
 Supported uploads:
 
-- user avatar
-- room avatar
-- chat image
+- profile avatars
+- room avatars
+- chat images
 
-Flow:
+Current flow:
 
-1. pick image with `image_picker`
+1. pick an image locally
 2. upload bytes to Supabase Storage
-3. save the resulting public URL in Firestore
+3. store the resulting public URL in Firestore
 
-## 11. Profile Management
+Main file:
+
+- `lib/services/storage_service.dart`
+
+## 12. Profile Features
 
 Users can manage:
 
-- name
+- display name
 - bio
 - username
 - avatar
 
-Username change logic:
+Current behavior:
 
-- checks availability
-- reserves the new username
-- releases the old username
-- updates the presence username snapshot
+- username changes are checked for availability
+- the username reservation is moved atomically
+- presence username snapshots are refreshed after username changes
+- profile modal shows account details, status, and activity
 
-## 12. Settings
+Main files:
 
-Settings include:
+- `lib/features/profile/screens/profile_screen.dart`
+- `lib/features/profile/controllers/profile_controller.dart`
+- `lib/features/profile/widgets/user_profile_modal.dart`
 
-- theme mode: light, dark, system
-- theme color variant
-- change password
-- password reset email
+## 13. Settings Features
+
+Settings currently include:
+
+- light / dark / system theme mode
+- theme color variants
 - sign out
+- password change
+- password reset email
 - delete account
+- app version/build details via the Build Studio sheet
 
-Theme choices are stored locally with `SharedPreferences`.
+Local preference behavior:
 
-## 13. Global Announcement
+- theme mode and theme variant are stored locally
 
-The app can display a global pinned announcement using Firebase Remote Config.
+Main files:
 
-This allows changing a message without publishing a new app version.
+- `lib/features/profile/screens/settings_screen.dart`
+- `lib/core/theme/theme_mode_controller.dart`
+- `lib/core/theme/theme_variant_controller.dart`
 
-Windows note:
+## 14. Account Deletion
 
-- the Windows build falls back to no global announcement if Remote Config is unavailable on desktop
+The app includes a delete-account flow with confirmation.
 
-## 14. Tests
+Current cleanup intent includes:
 
-Current tests include:
+- auth account
+- user profile
+- username reservation
+- presence data
+- memberships and other user-linked data
 
-- mention parsing behavior
-- basic widget test scaffold
+This area is more complex than simple sign-out and remains one of the higher-risk flows to keep testing carefully.
 
-The strongest current automated coverage is for mention parsing logic.
+## 15. Global Announcement
 
-## 15. Distribution Targets
+The app can show a global announcement using Firebase Remote Config.
 
-The repository is currently prepared to distribute:
+Current behavior:
+
+- the app fetches a single announcement string
+- if present, it appears as a banner in chat contexts
+- unsupported desktop platforms fall back safely
+
+Main files:
+
+- `lib/services/remote_config_service.dart`
+- `lib/core/providers/app_providers.dart`
+
+## 16. Distribution Targets
+
+The current repo is set up to produce:
 
 - Android APK builds
-- Windows desktop installer builds
-- Windows portable ZIP bundles
+- Windows desktop release builds
+- Windows installer and portable release assets through GitHub Actions
 
-These can be produced locally or through GitHub Actions releases.
+## 17. Testing Status
 
-## 16. Feature Gaps / Improvement Ideas
+Current automated coverage is still limited compared with the feature surface.
 
-Possible future improvements:
+The most notable tested utility area is mention parsing, while much of the app behavior still depends on manual UI testing.
 
-- server-side general notifications instead of client-triggered sending
-- stronger moderation
-- message search
-- media caching
-- better account deletion cleanup across related collections
-- broader test coverage
+## 18. Known Tradeoffs
+
+Current tradeoffs include:
+
+- notification triggering is still client-driven
+- some desktop experiences intentionally degrade where Firebase plugins are not fully supported
+- account cleanup and deep data cleanup need ongoing attention
+- automated coverage is lighter than ideal for the amount of UI and realtime behavior

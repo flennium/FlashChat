@@ -1,179 +1,250 @@
 # FlashChat Backend And Operations
 
+FlashChat uses a hybrid backend built around Firebase, with Supabase used for media storage and push-delivery infrastructure.
+
 ## 1. Backend Overview
 
-FlashChat does not use a single backend service. Instead, it combines Firebase and Supabase.
-
-Firebase is used for:
+### Firebase is used for
 
 - Authentication
 - Cloud Firestore
 - Realtime Database
-- Cloud Messaging
-- Remote Config
+- Firebase Cloud Messaging
+- Firebase Remote Config
 - Crashlytics
 
-Supabase is used for:
+### Supabase is used for
 
 - Storage buckets
 - Edge Function that sends FCM v1 push notifications
 
-## 2. Firebase Authentication
+## 2. Current Source Of Truth By Concern
 
-Authentication methods:
+| Concern | Primary backend |
+| --- | --- |
+| Sign-in and identity | Firebase Auth |
+| Users, rooms, messages | Cloud Firestore |
+| Presence and typing | Realtime Database |
+| Global announcement | Firebase Remote Config |
+| Crash reporting | Firebase Crashlytics |
+| Media files | Supabase Storage |
+| Push delivery transport | Supabase Edge Function |
+
+## 3. Firebase Authentication
+
+Supported methods:
 
 - email/password
-- Google Sign-In
+- Google Sign-In on supported platforms
 
-The Flutter client creates a matching Firestore user document after registration or first Google sign-in.
+Current behavior:
 
-## 3. Cloud Firestore
+- registration creates the Auth account
+- the app then creates the Firestore profile
+- first-time Google sign-in also creates the Firestore profile
 
-Firestore is the main source of truth for app data.
+Main file:
 
-Key responsibilities:
+- `lib/services/auth_service.dart`
 
-- users
-- usernames
-- rooms
+## 4. Cloud Firestore
+
+Firestore is the main persistent data store.
+
+Main responsibilities:
+
+- user profiles
+- username reservation
+- room metadata
 - room membership
-- messages
+- room messages
 - unread counters
-- room admin configuration
+- app configuration such as `roomAdminEmail`
 
-Important service file:
+Main file:
 
 - `lib/services/firestore_service.dart`
 
-Current note:
+Important current note:
 
-- unread counters are updated directly by the Flutter client when a message is created
+- much of the app logic that could live in backend triggers is currently executed by the Flutter client directly
 
-## 4. Realtime Database
+## 5. Realtime Database
 
-Realtime Database is used only for ephemeral presence data.
+Realtime Database is used for ephemeral live state, not long-term records.
 
-Responsibilities:
+Current responsibilities:
 
 - online/offline state
-- typing-room tracking
-- username snapshot for typing labels
+- typing room id
+- username snapshot for live typing labels
 
-Important service file:
+Main file:
 
 - `lib/services/presence_service.dart`
 
-## 5. Firebase Remote Config
+Current design note:
 
-Used for one global announcement string:
+- room online count is derived by combining room members from Firestore with online presence data from RTDB
 
-- key: `global_pinned_message`
+## 6. Firebase Remote Config
 
-Important service file:
+Remote Config currently powers one global announcement string.
+
+Key:
+
+- `global_pinned_message`
+
+Main file:
 
 - `lib/services/remote_config_service.dart`
 
-## 6. Legacy Firebase Cloud Functions
+## 7. Firebase Cloud Messaging
+
+FCM is used for device notification delivery, but the app does not rely on a full Firebase Cloud Functions backend for the current active flow.
+
+Current responsibilities:
+
+- device token registration
+- receiving foreground/background notifications
+- passing notification payloads into the app
 
 Main file:
 
-- `functions/index.js`
+- `lib/services/fcm_service.dart`
 
-This folder is now kept as a legacy reference, not as the active production backend for the Spark-plan setup.
+## 8. Crashlytics
 
-### `onNewMessage`
+Crashlytics is initialized during app bootstrap on supported platforms.
 
-Trigger:
+Current behavior:
 
-- Firestore `rooms/{roomId}/messages/{messageId}` on create
-
-Responsibilities:
-
-- increment unread counts for room members except sender
-- extract `@username` mentions
-- resolve usernames to user ids
-- send mention notifications to valid room members
-
-Current status:
-
-- this logic has been replaced in the active app flow by Flutter client code plus the Supabase Edge Function
-
-### `moderateMessage`
-
-Trigger:
-
-- Firestore `rooms/{roomId}/messages/{messageId}` on create
-
-Responsibilities:
-
-- check message text against a banned-word list
-- soft-delete messages that contain banned content
-
-Current moderation is intentionally simple and easy to extend.
-
-Current status:
-
-- no active Spark-plan replacement is deployed for this moderation function
-
-### `updateMemberCount`
-
-Trigger:
-
-- Firestore `rooms/{roomId}/members/{uid}` on write
-
-Responsibilities:
-
-- recount member documents
-- update cached `memberCount` on the room
-
-Current status:
-
-- room creation and join flows already keep `memberCount` updated on the client side
-
-## 7. Supabase Edge Function
+- Flutter framework errors can be reported
+- platform-level uncaught errors can be reported
+- desktop support is intentionally limited by platform capability rules
 
 Main file:
+
+- `lib/services/app_bootstrap.dart`
+
+## 9. Supabase Storage
+
+Supabase Storage is used for uploaded media only.
+
+Current buckets:
+
+- `avatars`
+- `chat-images`
+
+What is stored there:
+
+- profile avatars
+- room avatars
+- chat image attachments
+
+The app stores the resulting public URLs in Firestore.
+
+Main file:
+
+- `lib/services/storage_service.dart`
+
+## 10. Supabase Edge Function
+
+Active function:
 
 - `supabase/functions/send-notification/index.ts`
 
 Purpose:
 
-- send FCM v1 push notifications using a Firebase service account
+- accept a list of FCM tokens
+- create an OAuth2 access token for FCM v1 using a Firebase service account
+- send push notifications through the FCM v1 API
 
-Why this exists:
-
-- FCM v1 requires OAuth2 access tokens
-- this edge function creates a signed JWT, exchanges it for an access token, and sends push messages
-
-Request body contains:
+Expected request body fields:
 
 - `tokens`
 - `title`
 - `body`
 - `data`
 
-Important behavior:
+Current implementation note:
 
-- all `data` values are converted to strings because FCM v1 requires string payload values
-- message and mention notifications can be compacted by sender using platform-specific collapse keys / tags
+- all payload `data` values are coerced to strings because FCM v1 requires string values
 
-## 8. Security Rules
+## 11. Current Notification Flow
 
-Main files:
+The current active notification path is:
 
-- `firestore.rules`
-- `storage.rules`
+1. the Flutter client creates or observes the message event
+2. it gathers eligible tokens from Firestore
+3. it calls the Supabase Edge Function
+4. the Edge Function sends the FCM v1 notifications
 
-Firestore rule highlights:
+This applies to:
 
-- only signed-in users can read most data
-- users can write only their own profile
-- usernames can be created/deleted only by the owner
-- rooms can be managed by the creator or configured room admin
-- messages can be created only by the authenticated sender
-- shared message updates are limited to read and reaction fields
+- room-message notifications
+- mention notifications
 
-## 9. Configuration Values
+Important tradeoff:
+
+- this is simpler than a full server-triggered model, but less authoritative than a backend-only notification pipeline
+
+## 12. Username And Mention Resolution
+
+Mentions are resolved through Firestore, not through a special backend service.
+
+Current flow:
+
+- the client parses `@username`
+- usernames are resolved via `usernames/{username}`
+- valid room-member targets are converted into notification targets
+
+Main logic lives in:
+
+- `lib/services/firestore_service.dart`
+- `lib/core/utils/mention_utils.dart`
+
+## 13. Room Membership And Unread Counters
+
+Room membership is stored in:
+
+- `rooms/{roomId}/members/{uid}`
+
+Current responsibilities in this structure:
+
+- membership existence
+- join timestamp
+- unread counter
+- last read timestamp
+
+Current note:
+
+- unread tracking is maintained by client-side flows and Firestore writes, not by an active server trigger
+
+## 14. Legacy Firebase Cloud Functions
+
+Legacy reference folder:
+
+- `functions/`
+
+Current status:
+
+- it is not the primary production path for the current setup
+- it remains useful as historical reference for earlier backend logic
+
+Examples found there:
+
+- unread count updates
+- mention notification targeting
+- simple moderation
+- member count maintenance
+
+Why it matters:
+
+- some documentation or older assumptions may still reference these functions
+- the active app flow has moved away from depending on them directly
+
+## 15. Configuration Values
 
 ### Dart environment values
 
@@ -191,13 +262,13 @@ Path:
 
 - `app/config`
 
-Field:
+Important field:
 
 - `roomAdminEmail`
 
 Purpose:
 
-- allows a configured email to manage rooms even if not the original creator
+- allows a configured email to manage rooms globally
 
 ### Supabase secret
 
@@ -205,62 +276,68 @@ Edge Function secret:
 
 - `FIREBASE_SERVICE_ACCOUNT`
 
-This should contain the full Firebase service-account JSON string.
+This must not be committed into the repo.
 
-## 10. Local Development
+## 16. Local Operations
 
-Typical Flutter commands:
+Common local commands:
 
 ```bash
 flutter pub get
 flutter analyze
 flutter test
-flutter run
 ```
 
-Legacy Firebase Functions install:
+Typical local run on Windows PowerShell:
 
-```bash
-cd functions
-npm install
+```powershell
+.\scripts\flutter-with-env.ps1 run
 ```
 
-Supabase Edge Function development depends on the Supabase CLI if local testing is needed.
+For setup details, read:
 
-## 11. Deployment Notes
+- `docs/SETUP_GUIDE.md`
 
-Legacy Firebase Cloud Functions:
+## 17. Deployment Notes
 
-- deployment requires the Firebase Blaze plan
-- they are not required for the current Spark-plan setup
+### Flutter app
 
-Supabase Edge Function:
+Built with standard Flutter build commands or GitHub Actions workflows.
 
-- deploy from `supabase/functions/send-notification/`
+### Android signing
 
-Flutter app:
+Release builds should use the same release keystore every time.
 
-- standard `flutter build` commands for Android/web/etc.
+### Supabase Edge Function
 
-## 12. Operational Risks
+Deploy from:
+
+- `supabase/functions/send-notification/`
+
+### Legacy Firebase Functions
+
+They are not required for the main active Spark-plan-style app flow.
+
+## 18. Operational Risks
 
 Current areas to watch:
 
-- notification logic depends on the Flutter client plus the Supabase Edge Function
-- service-account secrets must not stay in the project folder
-- client-triggered general notifications can be bypassed or duplicated more easily than server-triggered ones
-- account deletion currently removes the auth user and profile doc, but deeper cleanup may still be desirable
+- notification flow depends on client-triggered token gathering
+- service-account secrets must remain outside the repo
+- media cleanup can become orphaned without deeper cleanup routines
+- account deletion is broader than a simple profile delete and should be tested carefully
+- desktop support intentionally degrades around unsupported Firebase live features
 
-## 13. Recommended Production Improvements
+## 19. Recommended Future Improvements
 
-- move all push logic fully server-side
-- expand moderation beyond a hard-coded banned-word list
-- add cleanup jobs for orphaned media files
-- add more tests for backend behavior
-- move secrets entirely into environment/secret managers
+- move more notification logic to backend-triggered flows
+- add cleanup routines for orphaned storage files
+- expand moderation beyond legacy examples
+- improve test coverage around backend-facing services
+- formalize Realtime Database rules and document them alongside Firestore rules
 
-## 14. Related Documentation
+## 20. Related Docs
 
-For publication and secret-handling guidance, also read:
-
-- `docs/CONFIGURATION_AND_SECURITY.md`
+- [ARCHITECTURE_README.md](ARCHITECTURE_README.md)
+- [DATA_MODEL_README.md](DATA_MODEL_README.md)
+- [CONFIGURATION_AND_SECURITY.md](CONFIGURATION_AND_SECURITY.md)
