@@ -8,6 +8,7 @@ import '../../../services/firestore_service.dart';
 import '../../chat/screens/chat_screen.dart';
 import '../controllers/room_controller.dart';
 import '../screens/create_room_screen.dart';
+import 'room_info_sheet.dart';
 
 class RoomTile extends ConsumerStatefulWidget {
   const RoomTile({super.key, required this.room});
@@ -34,70 +35,134 @@ class _RoomTileState extends ConsumerState<RoomTile> {
         (currentProfile.uid == room.createdBy ||
             (adminEmail.isNotEmpty &&
                 currentProfile.email.trim().toLowerCase() == adminEmail));
+    final theme = Theme.of(context);
 
-    return Card(
-      child: ListTile(
-        contentPadding:
-            const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-        leading: _RoomAvatar(room: room),
-        title: Text(room.name),
-        subtitle: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              'Room owner ${room.ownerLabel.isNotEmpty ? room.ownerLabel : 'Unknown'}',
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: Colors.white.withValues(alpha: 0.8),
-                  ),
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(28),
+        onTap: _isWorking ? null : _handleTap,
+        child: Ink(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(28),
+            gradient: LinearGradient(
+              colors: [
+                theme.colorScheme.surfaceContainerHigh.withValues(alpha: 0.92),
+                theme.colorScheme.surfaceContainer.withValues(alpha: 0.96),
+              ],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
             ),
-            if (room.description.isNotEmpty)
-              Text(
-                room.description,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
+            border: Border.all(
+              color: theme.colorScheme.outline.withValues(alpha: 0.08),
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: theme.colorScheme.shadow.withValues(alpha: 0.06),
+                blurRadius: 18,
+                offset: const Offset(0, 8),
               ),
-          ],
-        ),
-        trailing: _isWorking
-            ? const SizedBox(
-                width: 24,
-                height: 24,
-                child: CircularProgressIndicator(strokeWidth: 2),
-              )
-            : SizedBox(
-                width: canManage ? 164 : 114,
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.end,
-                  children: [
-                    Expanded(
-                      child: _RoomStatusCluster(
-                        unreadCount: unreadCount,
-                        memberCount: room.memberCount,
+            ],
+          ),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+            child: Row(
+              children: [
+                _RoomAvatar(room: room, unreadCount: unreadCount),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      GestureDetector(
+                        behavior: HitTestBehavior.opaque,
+                        onTap: () => showRoomInfoSheet(context, room: room),
+                        child: Text(
+                          room.name,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: theme.textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.w800,
+                            color: theme.colorScheme.onSurface,
+                            letterSpacing: -0.2,
+                          ),
+                        ),
                       ),
-                    ),
-                    if (canManage) ...[
-                      const SizedBox(width: 8),
-                      PopupMenuButton<_RoomMenuAction>(
-                        icon: const Icon(Icons.more_vert_rounded),
-                        onSelected: (value) =>
-                            _handleRoomAction(context, value),
-                        itemBuilder: (_) => const [
-                          PopupMenuItem(
-                            value: _RoomMenuAction.edit,
-                            child: Text('Edit room'),
+                      const SizedBox(height: 6),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 6,
+                        crossAxisAlignment: WrapCrossAlignment.center,
+                        children: [
+                          GestureDetector(
+                            onTap: () => showRoomInfoSheet(context, room: room),
+                            child: _RoomPill(
+                              icon: Icons.info_outline_rounded,
+                              label: 'Room details',
+                              backgroundColor:
+                                  theme.colorScheme.primary.withValues(alpha: 0.1),
+                              foregroundColor: theme.colorScheme.primary,
+                            ),
                           ),
-                          PopupMenuItem(
-                            value: _RoomMenuAction.delete,
-                            child: Text('Delete room'),
-                          ),
+                          if (unreadCount > 0)
+                            _RoomPill(
+                              icon: Icons.mark_chat_unread_rounded,
+                              label: unreadCount > 99
+                                  ? '99+ unread'
+                                  : '$unreadCount unread',
+                              backgroundColor: theme.colorScheme.errorContainer,
+                              foregroundColor:
+                                  theme.colorScheme.onErrorContainer,
+                            )
+                          else
+                            _RoomPill(
+                              icon: Icons.done_all_rounded,
+                              label: '',
+                              backgroundColor: theme.colorScheme
+                                  .surfaceContainerHighest
+                                  .withValues(alpha: 0.7),
+                              foregroundColor: theme.colorScheme.onSurface
+                                  .withValues(alpha: 0.68),
+                            ),
                         ],
                       ),
                     ],
-                  ],
+                  ),
                 ),
-              ),
-        onTap: _isWorking ? null : _handleTap,
+                const SizedBox(width: 10),
+                if (_isWorking)
+                  const SizedBox(
+                    width: 22,
+                    height: 22,
+                    child: CircularProgressIndicator(strokeWidth: 2.2),
+                  )
+                else if (canManage)
+                  PopupMenuButton<_RoomMenuAction>(
+                    tooltip: 'Room actions',
+                    icon: const Icon(Icons.more_horiz_rounded),
+                    onSelected: (value) => _handleRoomAction(context, value),
+                    itemBuilder: (_) => const [
+                      PopupMenuItem(
+                        value: _RoomMenuAction.edit,
+                        child: Text('Edit room'),
+                      ),
+                      PopupMenuItem(
+                        value: _RoomMenuAction.delete,
+                        child: Text('Delete room'),
+                      ),
+                    ],
+                  )
+                else
+                  Icon(
+                    Icons.arrow_forward_ios_rounded,
+                    size: 16,
+                    color: theme.colorScheme.onSurface.withValues(alpha: 0.4),
+                  ),
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }
@@ -374,115 +439,112 @@ class _PrivateRoomAccessDialogState
 }
 
 class _RoomAvatar extends StatelessWidget {
-  const _RoomAvatar({required this.room});
-
-  final RoomModel room;
-
-  @override
-  Widget build(BuildContext context) {
-    if (room.avatarUrl.isNotEmpty) {
-      return CircleAvatar(
-        backgroundImage: NetworkImage(room.avatarUrl),
-      );
-    }
-
-    return CircleAvatar(
-      child: Icon(room.isPrivate ? Icons.lock_rounded : Icons.forum_rounded),
-    );
-  }
-}
-
-class _RoomStatusCluster extends StatelessWidget {
-  const _RoomStatusCluster({
+  const _RoomAvatar({
+    required this.room,
     required this.unreadCount,
-    required this.memberCount,
   });
 
+  final RoomModel room;
   final int unreadCount;
-  final int memberCount;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final hasUnread = unreadCount > 0;
     final unreadLabel = unreadCount > 99 ? '99+' : '$unreadCount';
 
-    return Column(
-      mainAxisAlignment: MainAxisAlignment.center,
-      crossAxisAlignment: CrossAxisAlignment.end,
+    return Stack(
+      clipBehavior: Clip.none,
       children: [
-        AnimatedSwitcher(
-          duration: const Duration(milliseconds: 180),
-          child: hasUnread
-              ? _RoomMetaPill(
-                  key: const ValueKey('unread'),
-                  icon: Icons.mark_chat_unread_rounded,
-                  label: '$unreadLabel new',
-                  backgroundColor: theme.colorScheme.errorContainer,
-                  foregroundColor: theme.colorScheme.onErrorContainer,
-                  borderColor: theme.colorScheme.error.withValues(alpha: 0.18),
-                  emphasized: true,
-                )
-              : _RoomMetaPill(
-                  key: const ValueKey('quiet'),
-                  icon: Icons.done_all_rounded,
-                  label: '',
-                  backgroundColor: theme.colorScheme.surfaceContainerHighest
-                      .withValues(alpha: 0.72),
-                  foregroundColor:
-                      theme.colorScheme.onSurface.withValues(alpha: 0.72),
-                  borderColor: theme.colorScheme.outline.withValues(alpha: 0.1),
-                ),
-        ),
-        const SizedBox(height: 8),
-        _RoomMetaPill(
-          icon: Icons.group_rounded,
-          label: '$memberCount members',
+        CircleAvatar(
+          radius: 28,
           backgroundColor:
-              theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
-          foregroundColor: theme.colorScheme.onSurface.withValues(alpha: 0.74),
-          borderColor: theme.colorScheme.outline.withValues(alpha: 0.1),
+              theme.colorScheme.primaryContainer.withValues(alpha: 0.88),
+          backgroundImage:
+              room.avatarUrl.isNotEmpty ? NetworkImage(room.avatarUrl) : null,
+          child: room.avatarUrl.isEmpty
+              ? Icon(
+                  Icons.forum_rounded,
+                  color: theme.colorScheme.onPrimaryContainer,
+                )
+              : null,
         ),
+        if (room.isPrivate)
+          Positioned(
+            right: -2,
+            bottom: -2,
+            child: Container(
+              width: 22,
+              height: 22,
+              decoration: BoxDecoration(
+                color: theme.colorScheme.surface,
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: theme.colorScheme.surface,
+                  width: 2,
+                ),
+              ),
+              child: Icon(
+                Icons.lock_rounded,
+                size: 12,
+                color: theme.colorScheme.primary,
+              ),
+            ),
+          ),
+        if (unreadCount > 0)
+          Positioned(
+            right: -6,
+            top: -6,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+              decoration: BoxDecoration(
+                color: theme.colorScheme.error,
+                borderRadius: BorderRadius.circular(999),
+                border: Border.all(
+                  color: theme.colorScheme.surface,
+                  width: 2,
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: theme.colorScheme.error.withValues(alpha: 0.28),
+                    blurRadius: 10,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: Text(
+                unreadLabel,
+                style: theme.textTheme.labelSmall?.copyWith(
+                  color: theme.colorScheme.onError,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ),
+          ),
       ],
     );
   }
 }
 
-class _RoomMetaPill extends StatelessWidget {
-  const _RoomMetaPill({
-    super.key,
+class _RoomPill extends StatelessWidget {
+  const _RoomPill({
     required this.icon,
     required this.label,
     required this.backgroundColor,
     required this.foregroundColor,
-    required this.borderColor,
-    this.emphasized = false,
   });
 
   final IconData icon;
   final String label;
   final Color backgroundColor;
   final Color foregroundColor;
-  final Color borderColor;
-  final bool emphasized;
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
       decoration: BoxDecoration(
         color: backgroundColor,
         borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: borderColor),
-        boxShadow: emphasized
-            ? [
-                BoxShadow(
-                  color: foregroundColor.withValues(alpha: 0.08),
-                  blurRadius: 12,
-                  offset: const Offset(0, 4),
-                ),
-              ]
-            : null,
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -493,8 +555,7 @@ class _RoomMetaPill extends StatelessWidget {
             label,
             style: Theme.of(context).textTheme.labelSmall?.copyWith(
                   color: foregroundColor,
-                  fontWeight: emphasized ? FontWeight.w800 : FontWeight.w700,
-                  letterSpacing: 0.1,
+                  fontWeight: FontWeight.w800,
                 ),
           ),
         ],

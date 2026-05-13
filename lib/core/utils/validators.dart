@@ -84,6 +84,26 @@ class Validators {
     return null;
   }
 
+  static String? roomNameForEditing(
+    String? value, {
+    String? existingName,
+  }) {
+    final required = requiredField(value, label: 'Room name');
+    if (required != null) return required;
+
+    final normalized = InputSanitizer.normalizeRoomName(value!);
+    final existingNormalized =
+        existingName == null ? '' : InputSanitizer.normalizeRoomName(existingName);
+
+    if (normalized == existingNormalized &&
+        existingNormalized.isNotEmpty &&
+        existingNormalized.length < 3) {
+      return null;
+    }
+
+    return roomName(value);
+  }
+
   static String? roomDescription(String? value) {
     final required = requiredField(value, label: 'Description');
     if (required != null) return required;

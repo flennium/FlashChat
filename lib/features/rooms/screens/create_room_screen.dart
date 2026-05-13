@@ -95,7 +95,10 @@ class _CreateRoomScreenState extends ConsumerState<CreateRoomScreen> {
                 TextFormField(
                   controller: _nameController,
                   decoration: const InputDecoration(labelText: 'Room name'),
-                  validator: Validators.roomName,
+                  validator: (value) => Validators.roomNameForEditing(
+                    value,
+                    existingName: widget.room?.name,
+                  ),
                 ),
                 const SizedBox(height: 16),
                 TextFormField(

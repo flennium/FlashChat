@@ -15,6 +15,7 @@ import '../widgets/typing_indicator.dart';
 import '../widgets/unread_divider.dart';
 import '../../rooms/controllers/room_controller.dart';
 import '../../rooms/screens/create_room_screen.dart';
+import '../../rooms/widgets/room_info_sheet.dart';
 
 // Sentinel value inserted into the display-item list to mark the unread divider.
 const _kUnreadDivider = '__unread_divider__';
@@ -409,31 +410,37 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                 ),
               ),
             Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    room.name,
-                    style: theme.textTheme.titleMedium?.copyWith(
-                      color: theme.colorScheme.onSurface,
-                      fontWeight: FontWeight.w700,
+              child: GestureDetector(
+                onTap: () => showRoomInfoSheet(context, room: room),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      room.name,
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        color: theme.colorScheme.onSurface,
+                        fontWeight: FontWeight.w700,
+                      ),
                     ),
-                  ),
-                  Text(
-                    room.ownerLabel.isNotEmpty
-                        ? 'Room owner ${room.ownerLabel.toLowerCase()}'
-                        : 'Room owner unknown',
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: theme.colorScheme.onSurfaceVariant,
+                    Text(
+                      'Tap for room details',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
           ],
         ),
         actions: [
+          IconButton(
+            onPressed: () => showRoomInfoSheet(context, room: room),
+            icon: const Icon(Icons.info_outline_rounded),
+            tooltip: 'Room details',
+          ),
           if (canManageRoom)
             IconButton(
               onPressed: () async {
