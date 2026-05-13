@@ -16,15 +16,19 @@ android {
     compileSdk = flutter.compileSdkVersion
     ndkVersion = flutter.ndkVersion
 
-    val releaseKeystorePath = System.getenv("ANDROID_KEYSTORE_PATH")
-    val releaseKeystorePassword = System.getenv("ANDROID_KEYSTORE_PASSWORD")
-    val releaseKeyAlias = System.getenv("ANDROID_KEY_ALIAS")
-    val releaseKeyPassword = System.getenv("ANDROID_KEY_PASSWORD")
+    fun env(name: String): String? = System.getenv(name)?.trim()?.takeIf {
+        it.isNotEmpty()
+    }
+
+    val releaseKeystorePath = env("ANDROID_KEYSTORE_PATH")
+    val releaseKeystorePassword = env("ANDROID_KEYSTORE_PASSWORD")
+    val releaseKeyAlias = env("ANDROID_KEY_ALIAS")
+    val releaseKeyPassword = env("ANDROID_KEY_PASSWORD")
     val hasReleaseSigning = !releaseKeystorePath.isNullOrBlank() &&
         !releaseKeystorePassword.isNullOrBlank() &&
         !releaseKeyAlias.isNullOrBlank() &&
         !releaseKeyPassword.isNullOrBlank()
-    val requireReleaseSigning = System.getenv("REQUIRE_RELEASE_SIGNING") == "true"
+    val requireReleaseSigning = env("REQUIRE_RELEASE_SIGNING") == "true"
 
     if (requireReleaseSigning && !hasReleaseSigning) {
         throw GradleException(

@@ -4,6 +4,7 @@ import 'package:image_picker/image_picker.dart';
 import '../../../core/constants/app_env.dart';
 import '../../../core/providers/app_providers.dart';
 import '../../../models/room_model.dart';
+import '../../../services/firestore_service.dart';
 
 final roomListProvider = StreamProvider<List<RoomModel>>((ref) {
   final authUser = ref.watch(authStateProvider).valueOrNull;
@@ -96,12 +97,19 @@ class RoomController extends StateNotifier<AsyncValue<void>> {
   }) async {
     state = const AsyncValue.loading();
     state = await AsyncValue.guard(() async {
-      final ok = await ref.read(firestoreServiceProvider).joinRoom(
+      final result = await ref.read(firestoreServiceProvider).joinRoom(
             room: room,
             accessCode: accessCode,
           );
-      if (!ok) {
-        throw Exception('Invalid access code');
+      switch (result) {
+        case RoomJoinResult.success:
+          return;
+        case RoomJoinResult.invalidAccessCode:
+          throw Exception('Invalid access code');
+        case RoomJoinResult.roomUnavailable:
+          throw Exception('Room unavailable');
+        case RoomJoinResult.unauthenticated:
+          throw Exception('Authentication required');
       }
     });
     return !state.hasError;

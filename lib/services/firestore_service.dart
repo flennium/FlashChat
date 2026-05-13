@@ -18,6 +18,13 @@ class MentionNotificationTargets {
   final List<String> tokens;
 }
 
+enum RoomJoinResult {
+  success,
+  invalidAccessCode,
+  roomUnavailable,
+  unauthenticated,
+}
+
 class FirestoreService {
   FirestoreService({
     FirebaseFirestore? firestore,
@@ -139,23 +146,30 @@ class FirestoreService {
     return doc.exists;
   }
 
-  Future<bool> joinRoom({
+  Future<RoomJoinResult> joinRoom({
     required RoomModel room,
     String accessCode = '',
   }) async {
     final user = _auth.currentUser;
-    if (user == null) return false;
+    if (user == null) return RoomJoinResult.unauthenticated;
 
     final isMember = await isCurrentUserRoomMember(room.id);
-    if (isMember) return true;
-
-    if (room.isPrivate &&
-        InputSanitizer.normalizeAccessCode(room.accessCode) !=
-            InputSanitizer.normalizeAccessCode(accessCode)) {
-      return false;
-    }
+    if (isMember) return RoomJoinResult.success;
 
     final roomRef = _firestore.collection(FirebaseConstants.rooms).doc(room.id);
+    final roomSnap = await roomRef.get();
+    if (!roomSnap.exists || roomSnap.data() == null) {
+      return RoomJoinResult.roomUnavailable;
+    }
+
+    final latestRoom = RoomModel.fromMap(roomSnap.data()!, roomSnap.id);
+
+    if (latestRoom.isPrivate &&
+        InputSanitizer.normalizeAccessCode(latestRoom.accessCode) !=
+            InputSanitizer.normalizeAccessCode(accessCode)) {
+      return RoomJoinResult.invalidAccessCode;
+    }
+
     final memberRef =
         roomRef.collection(FirebaseConstants.members).doc(user.uid);
 
@@ -171,7 +185,7 @@ class FirestoreService {
       }
     });
 
-    return true;
+    return RoomJoinResult.success;
   }
 
   // Messages

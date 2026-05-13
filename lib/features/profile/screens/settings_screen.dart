@@ -3,6 +3,7 @@ import 'dart:math';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import 'package:simple_icons/simple_icons.dart';
 
 import '../../../core/providers/app_providers.dart';
@@ -42,6 +43,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   int _footerIndex = 0;
   int _versionTapStreak = 0;
   Timer? _footerTimer;
+  String _appVersionLabel = 'Version';
 
   @override
   void initState() {
@@ -52,6 +54,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             () => _footerIndex = (_footerIndex + 1) % _footerMessages.length);
       }
     });
+    _loadAppVersion();
   }
 
   @override
@@ -108,6 +111,24 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           pageBuilder: (_, __, ___) => const _CelebrationScreen(),
         ),
       );
+    }
+  }
+
+  Future<void> _loadAppVersion() async {
+    try {
+      final packageInfo = await PackageInfo.fromPlatform();
+      final buildNumber = packageInfo.buildNumber.trim();
+      final versionSuffix = buildNumber.isEmpty ? '' : '+$buildNumber';
+      final versionLabel = 'v${packageInfo.version}$versionSuffix';
+
+      if (mounted) {
+        setState(() => _appVersionLabel = versionLabel);
+      }
+    } catch (_) {
+      // Keep the UI usable even if package metadata is unavailable.
+      if (mounted) {
+        setState(() => _appVersionLabel = 'Version unavailable');
+      }
     }
   }
 
@@ -301,7 +322,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                         Row(
                           children: [
                             _Badge(
-                              label: 'v0.1.1',
+                              label: _appVersionLabel,
                               color: theme.colorScheme.primary,
                             ),
                             const SizedBox(width: 6),
