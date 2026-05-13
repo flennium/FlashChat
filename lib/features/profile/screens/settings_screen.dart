@@ -1,6 +1,6 @@
 import 'dart:async';
-import 'dart:math';
 
+import 'package:flutter/foundation.dart' show TargetPlatform, defaultTargetPlatform;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:package_info_plus/package_info_plus.dart';
@@ -41,9 +41,11 @@ class SettingsScreen extends ConsumerStatefulWidget {
 
 class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   int _footerIndex = 0;
-  int _versionTapStreak = 0;
   Timer? _footerTimer;
   String _appVersionLabel = 'Version';
+  String _appVersionName = '';
+  String _appBuildNumber = '';
+  String _appPackageName = '';
 
   @override
   void initState() {
@@ -97,39 +99,59 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     }
   }
 
-  void _onVersionTap() {
-    _versionTapStreak++;
-
-    // Keep a small hidden interaction without making the tap target frustrating.
-    final shouldOpen = _versionTapStreak >= 12 || Random().nextInt(8) == 0;
-
-    if (shouldOpen) {
-      _versionTapStreak = 0;
-      Navigator.of(context).push(
-        PageRouteBuilder<void>(
-          opaque: false,
-          pageBuilder: (_, __, ___) => const _CelebrationScreen(),
-        ),
-      );
-    }
+  Future<void> _showBuildStudio() {
+    return showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      useSafeArea: true,
+      builder: (_) => _BuildStudioSheet(
+        versionLabel: _appVersionLabel,
+        versionName: _appVersionName,
+        buildNumber: _appBuildNumber,
+        packageName: _appPackageName,
+      ),
+    );
   }
 
   Future<void> _loadAppVersion() async {
     try {
       final packageInfo = await PackageInfo.fromPlatform();
+      final versionName = packageInfo.version.trim();
       final buildNumber = packageInfo.buildNumber.trim();
       final versionSuffix = buildNumber.isEmpty ? '' : '+$buildNumber';
-      final versionLabel = 'v${packageInfo.version}$versionSuffix';
+      final versionLabel = 'v$versionName$versionSuffix';
 
       if (mounted) {
-        setState(() => _appVersionLabel = versionLabel);
+        setState(() {
+          _appVersionLabel = versionLabel;
+          _appVersionName = versionName;
+          _appBuildNumber = buildNumber;
+          _appPackageName = packageInfo.packageName.trim();
+        });
       }
     } catch (_) {
       // Keep the UI usable even if package metadata is unavailable.
       if (mounted) {
-        setState(() => _appVersionLabel = 'Version unavailable');
+        setState(() {
+          _appVersionLabel = 'Version unavailable';
+          _appVersionName = '';
+          _appBuildNumber = '';
+          _appPackageName = '';
+        });
       }
     }
+  }
+
+  String _platformLabel() {
+    return switch (defaultTargetPlatform) {
+      TargetPlatform.android => 'Android',
+      TargetPlatform.iOS => 'iOS',
+      TargetPlatform.macOS => 'macOS',
+      TargetPlatform.windows => 'Windows',
+      TargetPlatform.linux => 'Linux',
+      TargetPlatform.fuchsia => 'Fuchsia',
+    };
   }
 
   @override
@@ -282,16 +304,18 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           ),
           const SizedBox(height: 16),
 
-          // Version card — tap for 0.1% easter egg
+          // Version card — opens a cleaner build detail sheet
           _AppCard(
-            child: GestureDetector(
-              onTap: _onVersionTap,
-              behavior: HitTestBehavior.opaque,
-              child: Row(
+            child: InkWell(
+              onTap: _showBuildStudio,
+              borderRadius: BorderRadius.circular(22),
+              child: Padding(
+                padding: const EdgeInsets.all(4),
+                child: Row(
                 children: [
                   Container(
-                    width: 46,
-                    height: 46,
+                    width: 58,
+                    height: 58,
                     decoration: BoxDecoration(
                       gradient: LinearGradient(
                         colors: [
@@ -301,10 +325,21 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                         begin: Alignment.topLeft,
                         end: Alignment.bottomRight,
                       ),
-                      borderRadius: BorderRadius.circular(14),
+                      borderRadius: BorderRadius.circular(18),
+                      boxShadow: [
+                        BoxShadow(
+                          color:
+                              theme.colorScheme.primary.withValues(alpha: 0.24),
+                          blurRadius: 20,
+                          offset: const Offset(0, 8),
+                        ),
+                      ],
                     ),
-                    child: const Icon(Icons.flash_on_rounded,
-                        color: Colors.white, size: 26),
+                    child: const Icon(
+                      Icons.flash_on_rounded,
+                      color: Colors.white,
+                      size: 28,
+                    ),
                   ),
                   const SizedBox(width: 14),
                   Expanded(
@@ -312,13 +347,23 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'FlashChat',
-                          style: theme.textTheme.titleMedium?.copyWith(
+                          'Build studio',
+                          style: theme.textTheme.labelLarge?.copyWith(
+                            color: theme.colorScheme.primary,
                             fontWeight: FontWeight.w800,
-                            color: titleColor,
+                            letterSpacing: 0.2,
                           ),
                         ),
                         const SizedBox(height: 4),
+                        Text(
+                          'FlashChat',
+                          style: theme.textTheme.titleLarge?.copyWith(
+                            fontWeight: FontWeight.w800,
+                            color: titleColor,
+                            letterSpacing: -0.3,
+                          ),
+                        ),
+                        const SizedBox(height: 6),
                         Row(
                           children: [
                             _Badge(
@@ -327,17 +372,41 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                             ),
                             const SizedBox(width: 6),
                             _Badge(
-                              label: 'Project Build',
+                              label: _platformLabel(),
                               color: theme.colorScheme.secondary,
                             ),
                           ],
                         ),
+                        const SizedBox(height: 8),
+                        Text(
+                          'Tap to open release notes, build metadata, and platform details.',
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: theme.colorScheme.onSurface
+                                .withValues(alpha: 0.66),
+                            height: 1.45,
+                          ),
+                        ),
                       ],
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Container(
+                    width: 40,
+                    height: 40,
+                    decoration: BoxDecoration(
+                      color: theme.colorScheme.surfaceContainerHighest
+                          .withValues(alpha: 0.78),
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                    child: Icon(
+                      Icons.north_east_rounded,
+                      color: theme.colorScheme.onSurface.withValues(alpha: 0.7),
                     ),
                   ),
                 ],
               ),
             ),
+          ),
           ),
 
           const SizedBox(height: 10),
@@ -1142,219 +1211,347 @@ class _PasswordSheetState extends ConsumerState<_PasswordSheet> {
   }
 }
 
-// Hidden version detail screen
+class _BuildStudioSheet extends StatelessWidget {
+  const _BuildStudioSheet({
+    required this.versionLabel,
+    required this.versionName,
+    required this.buildNumber,
+    required this.packageName,
+  });
 
-class _CelebrationScreen extends StatefulWidget {
-  const _CelebrationScreen();
-
-  @override
-  State<_CelebrationScreen> createState() => _CelebrationScreenState();
-}
-
-class _CelebrationScreenState extends State<_CelebrationScreen>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _ctrl;
-  late final Animation<double> _scaleIn;
-  late final Animation<double> _glow;
-  bool _canDismiss = false;
-
-  // Deterministic particle layout for a consistent visual effect.
-  static final _rng = Random(42);
-  final _particles = List.generate(
-    22,
-    (i) => _ParticleData(
-      x: _rng.nextDouble(),
-      y: _rng.nextDouble(),
-      size: 14.0 + _rng.nextDouble() * 18,
-      speed: 0.25 + _rng.nextDouble() * 0.5,
-      emoji: ['👑', '💎', '✨', '⭐', '🌟', '💫'][i % 6],
-    ),
-  );
-
-  @override
-  void initState() {
-    super.initState();
-    _ctrl = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 2800),
-    )..repeat(reverse: true);
-
-    _scaleIn = CurvedAnimation(parent: _ctrl, curve: Curves.elasticOut);
-    _glow = Tween<double>(begin: 0.0, end: 1.0).animate(
-      CurvedAnimation(parent: _ctrl, curve: Curves.easeInOut),
-    );
-
-    Future<void>.delayed(const Duration(milliseconds: 700), () {
-      if (mounted) {
-        setState(() => _canDismiss = true);
-      }
-    });
-  }
-
-  @override
-  void dispose() {
-    _ctrl.dispose();
-    super.dispose();
-  }
+  final String versionLabel;
+  final String versionName;
+  final String buildNumber;
+  final String packageName;
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: _canDismiss ? () => Navigator.pop(context) : null,
-      child: AnimatedBuilder(
-        animation: _ctrl,
-        builder: (context, _) {
-          final g = _glow.value;
-          return DecoratedBox(
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [
-                  Color.lerp(const Color.fromARGB(255, 71, 237, 226),
-                      const Color.fromARGB(255, 183, 242, 155), g)!,
-                  Color.lerp(const Color.fromARGB(255, 4, 135, 116),
-                      const Color.fromARGB(255, 153, 233, 144), g)!,
-                  Color.lerp(const Color.fromARGB(255, 2, 82, 84),
-                      const Color.fromARGB(255, 2, 124, 71), g)!,
-                ],
+    final theme = Theme.of(context);
+    final platformName = switch (defaultTargetPlatform) {
+      TargetPlatform.android => 'Android',
+      TargetPlatform.iOS => 'iOS',
+      TargetPlatform.macOS => 'macOS',
+      TargetPlatform.windows => 'Windows',
+      TargetPlatform.linux => 'Linux',
+      TargetPlatform.fuchsia => 'Fuchsia',
+    };
+
+    return DraggableScrollableSheet(
+      initialChildSize: 0.72,
+      minChildSize: 0.48,
+      maxChildSize: 0.94,
+      expand: false,
+      builder: (context, scrollController) {
+        return Container(
+          decoration: BoxDecoration(
+            color: theme.colorScheme.surface,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(34)),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.18),
+                blurRadius: 28,
+                offset: const Offset(0, -8),
               ),
-            ),
-            child: Stack(
-              children: [
-                // Floating particles
-                ..._particles.map(
-                  (p) => _FloatingParticle(particle: p, ctrl: _ctrl),
+            ],
+          ),
+          child: ListView(
+            controller: scrollController,
+            padding: const EdgeInsets.fromLTRB(22, 12, 22, 28),
+            children: [
+              Center(
+                child: Container(
+                  width: 44,
+                  height: 5,
+                  decoration: BoxDecoration(
+                    color: theme.colorScheme.onSurface.withValues(alpha: 0.14),
+                    borderRadius: BorderRadius.circular(999),
+                  ),
                 ),
-                // Center content
-                Center(
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 32),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
+              ),
+              const SizedBox(height: 18),
+              Container(
+                padding: const EdgeInsets.all(22),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(30),
+                  gradient: LinearGradient(
+                    colors: [
+                      theme.colorScheme.primary.withValues(alpha: 0.18),
+                      theme.colorScheme.secondary.withValues(alpha: 0.13),
+                      theme.colorScheme.tertiary.withValues(alpha: 0.1),
+                    ],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  border: Border.all(
+                    color: theme.colorScheme.primary.withValues(alpha: 0.14),
+                  ),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
                       children: [
-                        ScaleTransition(
-                          scale: _scaleIn,
-                          child: const Text(
-                            '💖',
-                            style: TextStyle(fontSize: 88),
-                          ),
-                        ),
-                        const SizedBox(height: 20),
-                        ScaleTransition(
-                          scale: _scaleIn,
-                          child: const Text(
-                            'FLASHCHAT\nVERSION DETAIL',
-                            textAlign: TextAlign.center,
-                            style: TextStyle(
-                              fontSize: 30,
-                              fontWeight: FontWeight.w900,
-                              color: Colors.white,
-                              height: 1.25,
-                              letterSpacing: 1.8,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 14),
-                        Text(
-                          'Project detail view unlocked',
-                          style: TextStyle(
-                            fontSize: 15,
-                            fontWeight: FontWeight.w600,
-                            color: Colors.white.withValues(alpha: 0.9),
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          'Thanks for exploring the project.',
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            fontSize: 14,
-                            fontStyle: FontStyle.italic,
-                            color: Colors.white.withValues(alpha: 0.82),
-                            height: 1.6,
-                          ),
-                        ),
-                        const SizedBox(height: 36),
                         Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 26, vertical: 13),
+                          width: 58,
+                          height: 58,
                           decoration: BoxDecoration(
-                            color:
-                                const Color(0xFF3B1F00).withValues(alpha: 0.1),
-                            borderRadius: BorderRadius.circular(32),
-                            border: Border.all(
-                              color: const Color(0xFF3B1F00)
-                                  .withValues(alpha: 0.25),
+                            gradient: LinearGradient(
+                              colors: [
+                                theme.colorScheme.primary,
+                                theme.colorScheme.secondary,
+                              ],
                             ),
+                            borderRadius: BorderRadius.circular(18),
                           ),
-                          child: Text(
-                            _canDismiss
-                                ? 'Tap anywhere to close'
-                                : 'Preparing view...',
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontWeight: FontWeight.w600,
-                              fontSize: 13,
-                            ),
+                          child: const Icon(
+                            Icons.auto_awesome_rounded,
+                            color: Colors.white,
+                            size: 28,
+                          ),
+                        ),
+                        const SizedBox(width: 14),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Build studio',
+                                style: theme.textTheme.labelLarge?.copyWith(
+                                  color: theme.colorScheme.primary,
+                                  fontWeight: FontWeight.w800,
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                'FlashChat release snapshot',
+                                style: theme.textTheme.headlineSmall?.copyWith(
+                                  fontWeight: FontWeight.w900,
+                                  letterSpacing: -0.4,
+                                ),
+                              ),
+                            ],
                           ),
                         ),
                       ],
                     ),
-                  ),
+                    const SizedBox(height: 18),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [
+                        _StudioChip(
+                          icon: Icons.sell_rounded,
+                          label: versionLabel,
+                          color: theme.colorScheme.primary,
+                        ),
+                        _StudioChip(
+                          icon: Icons.desktop_windows_rounded,
+                          label: platformName,
+                          color: theme.colorScheme.secondary,
+                        ),
+                        _StudioChip(
+                          icon: Icons.verified_rounded,
+                          label: 'Runtime metadata',
+                          color: theme.colorScheme.tertiary,
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 14),
+                    Text(
+                      'A cleaner home for app identity, build details, and release context.',
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: theme.colorScheme.onSurface.withValues(alpha: 0.72),
+                        height: 1.5,
+                      ),
+                    ),
+                  ],
                 ),
-              ],
+              ),
+              const SizedBox(height: 18),
+              _StudioPanel(
+                title: 'Build metadata',
+                icon: Icons.inventory_2_outlined,
+                child: Column(
+                  children: [
+                    _StudioRow(
+                      label: 'Version',
+                      value: versionName.isNotEmpty ? versionName : versionLabel,
+                    ),
+                    const SizedBox(height: 12),
+                    _StudioRow(
+                      label: 'Build number',
+                      value: buildNumber.isNotEmpty ? buildNumber : 'Unavailable',
+                    ),
+                    const SizedBox(height: 12),
+                    _StudioRow(
+                      label: 'Package id',
+                      value: packageName.isNotEmpty ? packageName : 'Unavailable',
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 14),
+              _StudioPanel(
+                title: 'Release notes',
+                icon: Icons.tips_and_updates_outlined,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'This panel replaces the old random tap easter egg with something more useful and polished.',
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: theme.colorScheme.onSurface.withValues(alpha: 0.76),
+                        height: 1.55,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    Text(
+                      'Use it when you want to confirm the real runtime version, not just a hardcoded label.',
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: theme.colorScheme.onSurface.withValues(alpha: 0.64),
+                        height: 1.55,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _StudioChip extends StatelessWidget {
+  const _StudioChip({
+    required this.icon,
+    required this.label,
+    required this.color,
+  });
+
+  final IconData icon;
+  final String label;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 14, color: color),
+          const SizedBox(width: 7),
+          Text(
+            label,
+            style: TextStyle(
+              color: color,
+              fontWeight: FontWeight.w800,
+              fontSize: 12,
             ),
-          );
-        },
+          ),
+        ],
       ),
     );
   }
 }
 
-class _ParticleData {
-  const _ParticleData({
-    required this.x,
-    required this.y,
-    required this.size,
-    required this.speed,
-    required this.emoji,
+class _StudioPanel extends StatelessWidget {
+  const _StudioPanel({
+    required this.title,
+    required this.icon,
+    required this.child,
   });
-  final double x;
-  final double y;
-  final double size;
-  final double speed;
-  final String emoji;
-}
 
-class _FloatingParticle extends StatelessWidget {
-  const _FloatingParticle({required this.particle, required this.ctrl});
-  final _ParticleData particle;
-  final Animation<double> ctrl;
+  final String title;
+  final IconData icon;
+  final Widget child;
 
   @override
   Widget build(BuildContext context) {
-    final screen = MediaQuery.sizeOf(context);
-    return AnimatedBuilder(
-      animation: ctrl,
-      builder: (_, __) {
-        final t = (ctrl.value * particle.speed) % 1.0;
-        final yPos = ((particle.y - t * 1.4) % 1.0) * screen.height;
-        final opacity =
-            (0.35 + 0.65 * sin(ctrl.value * pi * 2 * particle.speed))
-                .clamp(0.0, 1.0);
-        return Positioned(
-          left: particle.x * screen.width,
-          top: yPos,
-          child: Opacity(
-            opacity: opacity,
-            child: Text(
-              particle.emoji,
-              style: TextStyle(fontSize: particle.size),
+    final theme = Theme.of(context);
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.48),
+        borderRadius: BorderRadius.circular(26),
+        border: Border.all(
+          color: theme.colorScheme.outline.withValues(alpha: 0.08),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 36,
+                height: 36,
+                decoration: BoxDecoration(
+                  color: theme.colorScheme.primary.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(icon, color: theme.colorScheme.primary, size: 18),
+              ),
+              const SizedBox(width: 12),
+              Text(
+                title,
+                style: theme.textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          child,
+        ],
+      ),
+    );
+  }
+}
+
+class _StudioRow extends StatelessWidget {
+  const _StudioRow({
+    required this.label,
+    required this.value,
+  });
+
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Expanded(
+          flex: 3,
+          child: Text(
+            label,
+            style: theme.textTheme.labelLarge?.copyWith(
+              color: theme.colorScheme.onSurface.withValues(alpha: 0.56),
+              fontWeight: FontWeight.w700,
             ),
           ),
-        );
-      },
+        ),
+        const SizedBox(width: 16),
+        Expanded(
+          flex: 5,
+          child: Text(
+            value,
+            textAlign: TextAlign.right,
+            style: theme.textTheme.bodyLarge?.copyWith(
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ),
+      ],
     );
   }
 }

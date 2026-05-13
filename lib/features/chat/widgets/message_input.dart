@@ -94,6 +94,7 @@ class _MessageInputState extends ConsumerState<MessageInput> {
     final state = ref.watch(chatControllerProvider);
     final replyMessage = ref.watch(replyMessageProvider(widget.room.id));
     final theme = Theme.of(context);
+    final activeMention = _activeMention;
     final mentionQuery = _activeMention?.query;
     final suggestionsAsync = mentionQuery == null
         ? const AsyncValue<List<UserModel>>.data([])
@@ -118,6 +119,7 @@ class _MessageInputState extends ConsumerState<MessageInput> {
               theme: theme,
               suggestionsAsync: suggestionsAsync,
               query: mentionQuery,
+              activeMention: activeMention,
               onSelected: _insertMention,
             ),
           Padding(
@@ -239,10 +241,8 @@ class _MessageInputState extends ConsumerState<MessageInput> {
     }
   }
 
-  void _insertMention(UserModel user) {
+  void _insertMention(UserModel user, ActiveMentionQuery mention) {
     if (!mounted) return;
-    final mention = _activeMention;
-    if (mention == null) return;
 
     final before = _controller.text.substring(0, mention.start);
     final after = _controller.text.substring(mention.end);
@@ -347,13 +347,15 @@ class _MentionSuggestions extends StatelessWidget {
     required this.theme,
     required this.suggestionsAsync,
     required this.query,
+    required this.activeMention,
     required this.onSelected,
   });
 
   final ThemeData theme;
   final AsyncValue<List<UserModel>> suggestionsAsync;
   final String query;
-  final ValueChanged<UserModel> onSelected;
+  final ActiveMentionQuery? activeMention;
+  final void Function(UserModel user, ActiveMentionQuery mention) onSelected;
 
   @override
   Widget build(BuildContext context) {
@@ -404,6 +406,7 @@ class _MentionSuggestions extends StatelessWidget {
               color: theme.colorScheme.outlineVariant.withValues(alpha: 0.5),
             ),
             itemBuilder: (context, index) {
+              final mention = activeMention;
               final user = visibleItems[index];
               return ListTile(
                 dense: true,
@@ -433,7 +436,7 @@ class _MentionSuggestions extends StatelessWidget {
                   ),
                 ),
                 subtitle: Text('@${user.username}'),
-                onTap: () => onSelected(user),
+                onTap: mention == null ? null : () => onSelected(user, mention),
               );
             },
           );

@@ -52,9 +52,10 @@ class UserProfileModal extends ConsumerWidget {
                 return const Center(child: Text('User not found'));
               }
 
-              final isOnline = onlineAsync.valueOrNull ??
-                  (user.lastSeen != null &&
-                      DateTime.now().difference(user.lastSeen!).inMinutes < 5);
+              final isLiveOnline = onlineAsync.valueOrNull == true;
+              final isRecentlyActive = user.lastSeen != null &&
+                  DateTime.now().difference(user.lastSeen!).inMinutes < 5;
+              final isOnline = isLiveOnline || isRecentlyActive;
               final isDeleted = user.isDeleted;
 
               return CustomScrollView(
@@ -77,6 +78,9 @@ class UserProfileModal extends ConsumerWidget {
                         _ProfileHeader(
                           user: user,
                           isOnline: isDeleted ? false : isOnline,
+                          isLiveOnline: isDeleted ? false : isLiveOnline,
+                          isRecentlyActive:
+                              isDeleted ? false : isRecentlyActive,
                         ),
                         const SizedBox(height: 18),
                         Padding(
@@ -97,13 +101,17 @@ class UserProfileModal extends ConsumerWidget {
                                   icon: Icons.schedule_rounded,
                                   label: isDeleted
                                       ? 'Account'
-                                      : isOnline
+                                      : isLiveOnline
                                           ? 'Status'
+                                          : isRecentlyActive
+                                              ? 'Activity'
                                           : 'Last seen',
                                   value: isDeleted
                                       ? 'Deleted'
-                                      : isOnline
+                                      : isLiveOnline
                                           ? 'Active now'
+                                          : isRecentlyActive
+                                              ? 'Active recently'
                                           : user.lastSeen != null
                                               ? _relativeTime(user.lastSeen!)
                                               : 'Recently offline',
@@ -211,10 +219,14 @@ class _ProfileHeader extends StatelessWidget {
   const _ProfileHeader({
     required this.user,
     required this.isOnline,
+    required this.isLiveOnline,
+    required this.isRecentlyActive,
   });
 
   final UserModel user;
   final bool isOnline;
+  final bool isLiveOnline;
+  final bool isRecentlyActive;
 
   @override
   Widget build(BuildContext context) {
@@ -317,7 +329,9 @@ class _ProfileHeader extends StatelessWidget {
                   const SizedBox(height: 10),
                   _StatusPill(
                     isOnline: isOnline,
+                    isLiveOnline: isLiveOnline,
                     isDeleted: user.isDeleted,
+                    isRecentlyActive: isRecentlyActive,
                   ),
                 ],
               ),
@@ -332,11 +346,15 @@ class _ProfileHeader extends StatelessWidget {
 class _StatusPill extends StatelessWidget {
   const _StatusPill({
     required this.isOnline,
+    required this.isLiveOnline,
     required this.isDeleted,
+    this.isRecentlyActive = false,
   });
 
   final bool isOnline;
+  final bool isLiveOnline;
   final bool isDeleted;
+  final bool isRecentlyActive;
 
   @override
   Widget build(BuildContext context) {
@@ -371,9 +389,11 @@ class _StatusPill extends StatelessWidget {
           Text(
             isDeleted
                 ? 'Account deleted'
-                : isOnline
+                : isLiveOnline
                     ? 'Online now'
-                    : 'Currently offline',
+                    : isRecentlyActive
+                        ? 'Active recently'
+                        : 'Currently offline',
             style: theme.textTheme.bodyMedium?.copyWith(
               fontWeight: FontWeight.w700,
               color: isOnline

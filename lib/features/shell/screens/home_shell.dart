@@ -58,18 +58,18 @@ class _HomeShellState extends ConsumerState<HomeShell> {
     final profile =
         await ref.read(firestoreServiceProvider).fetchCurrentUserProfile();
     final username = profile?.username ?? '';
+    final authUser = ref.read(authStateProvider).valueOrNull;
     if (PlatformSupport.supportsRealtimePresence) {
       await ref.read(presenceServiceProvider).setOnline(username: username);
     }
 
-    final authUser = ref.read(authStateProvider).valueOrNull;
     final token = PlatformSupport.supportsPushNotifications
         ? await ref.read(fcmServiceProvider).initAndGetToken()
         : null;
-    if (authUser != null && token != null && token.isNotEmpty) {
+    if (authUser != null) {
       await ref.read(firestoreServiceProvider).updateProfile(
             uid: authUser.uid,
-            fcmToken: token,
+            fcmToken: token != null && token.isNotEmpty ? token : null,
           );
     }
   }
