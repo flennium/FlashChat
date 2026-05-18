@@ -17,26 +17,33 @@ class FcmService {
     if (!PlatformSupport.supportsPushNotifications) return null;
     try {
       if (kIsWeb) {
-        await _client.requestPermission(
+        final settings = await _client.requestPermission(
           alert: true,
           badge: true,
           sound: true,
         );
+        if (!_isAuthorized(settings.authorizationStatus)) {
+          _debugLog('Notification permission denied on web.');
+          return null;
+        }
         return _client.getToken(vapidKey: _webVapidKey);
       }
-      await _client.requestPermission(
+      final settings = await _client.requestPermission(
         alert: true,
         badge: true,
         sound: true,
       );
+      if (!_isAuthorized(settings.authorizationStatus)) {
+        _debugLog('Notification permission denied on this device.');
+        return null;
+      }
       return _client.getToken();
-    } catch (_) {
+    } catch (error, stackTrace) {
+      _debugLog('Could not initialize FCM: $error\n$stackTrace');
       return null;
     }
   }
 
-  /// Sends a push notification to [tokens] via the Supabase Edge Function.
-  /// Failures are silently swallowed so they never block the send flow.
   Future<void> sendNotification({
     required List<String> tokens,
     required String title,
@@ -48,7 +55,7 @@ class FcmService {
   }) async {
     if (tokens.isEmpty || !PlatformSupport.supportsPushNotifications) return;
     try {
-      await Supabase.instance.client.functions.invoke(
+      final response = await Supabase.instance.client.functions.invoke(
         'send-notification',
         body: {
           'tokens': tokens,
@@ -63,8 +70,25 @@ class FcmService {
             'collapseId': collapseId,
         },
       );
-    } catch (_) {
+      if (response.status >= 400) {
+        _debugLog(
+          'send-notification failed with ${response.status}: ${response.data}',
+        );
+      } else {
+        _debugLog('send-notification response: ${response.data}');
+      }
+    } catch (error, stackTrace) {
+      _debugLog('Could not send notification: $error\n$stackTrace');
       // Notification delivery is best-effort; never crash the app.
     }
+  }
+
+  bool _isAuthorized(AuthorizationStatus status) {
+    return status == AuthorizationStatus.authorized ||
+        status == AuthorizationStatus.provisional;
+  }
+
+  void _debugLog(String message) {
+    if (kDebugMode) debugPrint('[FCM] $message');
   }
 }

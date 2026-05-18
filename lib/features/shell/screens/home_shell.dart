@@ -23,6 +23,7 @@ class _HomeShellState extends ConsumerState<HomeShell> {
   int _index = 0;
   ProviderSubscription<AsyncValue<User?>>? _authSubscription;
   StreamSubscription<RemoteMessage>? _fcmSubscription;
+  StreamSubscription<String>? _tokenRefreshSubscription;
   OverlayEntry? _notifOverlay;
 
   static const _screens = [
@@ -38,6 +39,8 @@ class _HomeShellState extends ConsumerState<HomeShell> {
     if (PlatformSupport.supportsPushNotifications) {
       _fcmSubscription =
           FirebaseMessaging.onMessage.listen(_onForegroundMessage);
+      _tokenRefreshSubscription =
+          FirebaseMessaging.instance.onTokenRefresh.listen(_saveFcmToken);
     }
     _authSubscription = ref.listenManual<AsyncValue<User?>>(
       authStateProvider,
@@ -67,11 +70,22 @@ class _HomeShellState extends ConsumerState<HomeShell> {
         ? await ref.read(fcmServiceProvider).initAndGetToken()
         : null;
     if (authUser != null) {
-      await ref.read(firestoreServiceProvider).updateProfile(
-            uid: authUser.uid,
-            fcmToken: token != null && token.isNotEmpty ? token : null,
-          );
+      await _saveFcmTokenForUser(authUser.uid, token);
     }
+  }
+
+  Future<void> _saveFcmToken(String token) async {
+    final uid = ref.read(authStateProvider).valueOrNull?.uid;
+    if (uid == null) return;
+    await _saveFcmTokenForUser(uid, token);
+  }
+
+  Future<void> _saveFcmTokenForUser(String uid, String? token) {
+    if (token == null || token.isEmpty) return Future.value();
+    return ref.read(firestoreServiceProvider).updateProfile(
+          uid: uid,
+          fcmToken: token,
+        );
   }
 
   void _onForegroundMessage(RemoteMessage message) {
@@ -114,6 +128,7 @@ class _HomeShellState extends ConsumerState<HomeShell> {
   void dispose() {
     _notifOverlay?.remove();
     _fcmSubscription?.cancel();
+    _tokenRefreshSubscription?.cancel();
     _authSubscription?.close();
     super.dispose();
   }
@@ -137,15 +152,6 @@ class _HomeShellState extends ConsumerState<HomeShell> {
     );
   }
 }
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Instagram-style foreground notification banner
-//
-// • Slides in from above the status bar
-// • Tap or swipe up to dismiss early
-// • Auto-dismisses after 4 s
-// • Adapts to light / dark theme
-// ─────────────────────────────────────────────────────────────────────────────
 
 class _NotifBanner extends StatefulWidget {
   const _NotifBanner({
